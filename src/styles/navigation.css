@@ -1,0 +1,35 @@
+/* Navigation - Perfect Alignment */
+
+.nav-tabs {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  height: 100%;
+}
+
+.nav-tab {
+  height: 36px;
+  padding: 0 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #888;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 120ms;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.nav-tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nav-tab.active {
+  color: #fff;
+  background: rgba(59, 130, 246, 0.15);
+}

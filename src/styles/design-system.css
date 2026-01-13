@@ -1,0 +1,72 @@
+/* Ultra Modern Design System - Inspired by Linear, Raycast, Notion */
+
+:root {
+  /* Colors - Modern & Vibrant */
+  --color-primary: #5e6ad2;
+  --color-primary-hover: #4c56c4;
+  --color-accent: #9065b0;
+  
+  /* Backgrounds - Layered & Subtle */
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --bg-panel: #1a1a1a;
+  --bg-item: transparent;
+  --bg-item-hover: rgba(255, 255, 255, 0.03);
+  --bg-item-active: rgba(94, 106, 210, 0.1);
+  
+  /* Text - Perfect Contrast */
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-tertiary: #808080;
+  --text-muted: #666666;
+  
+  /* Spacing - Generous */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  
+  /* Typography - Beautiful */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  --font-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 19px;
+  --text-2xl: 24px;
+  
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  
+  /* Radius */
+  --radius: 8px;
+  --radius-lg: 12px;
+  
+  /* Transitions */
+  --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 0;
+}

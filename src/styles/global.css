@@ -1,0 +1,33 @@
+/* Global styles for transparent overlay window */
+
+/* Ensure all root elements are transparent */
+html {
+  background: transparent !important;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  background: transparent !important;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  background: transparent !important;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove any default browser backgrounds */
+* {
+  box-sizing: border-box;
+}
+
