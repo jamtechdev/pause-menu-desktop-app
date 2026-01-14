@@ -51,7 +51,6 @@ pub fn run() {
             }
         }
     }
-    
     // Verify environment variables are loaded
     if let Ok(client_id) = std::env::var("GOOGLE_CLIENT_ID") {
         println!("[Env] ✓ GOOGLE_CLIENT_ID is set (length: {})", client_id.len());
@@ -192,24 +191,38 @@ pub fn run() {
                         }
                         
                         // Check if this is a Windows system shortcut that should be blocked
+                        // IMPORTANT: Do NOT block Win+Shift+S (screenshot) or Print Screen
                         let is_windows_shortcut = {
                             // Win key alone (MetaLeft/MetaRight)
                             let is_win_key = shortcut.key == Code::MetaLeft || shortcut.key == Code::MetaRight;
                             
                             // Win+letter combinations (SUPER modifier with letter keys)
-                            let is_win_combo = shortcut.mods.contains(Modifiers::SUPER) && matches!(
-                                shortcut.key,
-                                Code::KeyA | Code::KeyI | Code::KeyX | Code::KeyK | Code::KeyN | Code::KeyS | Code::KeyT
-                            );
+                            // BUT: Allow Win+Shift+S (screenshot tool) - check for Shift modifier
+                            let is_win_combo = shortcut.mods.contains(Modifiers::SUPER) 
+                                && !shortcut.mods.contains(Modifiers::SHIFT) // Don't block if Shift is pressed (allows Win+Shift+S)
+                                && matches!(
+                                    shortcut.key,
+                                    Code::KeyA | Code::KeyI | Code::KeyX | Code::KeyK | Code::KeyN | Code::KeyS | Code::KeyT
+                                );
                             
                             is_win_key || is_win_combo
                         };
                         
-                        // If it's a Windows system shortcut, consume it (do nothing, just block Windows)
-                        if is_windows_shortcut && event.state == ShortcutState::Pressed {
+                        // Also check for Print Screen - always allow it
+                        let is_print_screen = shortcut.key == Code::PrintScreen;
+                        
+                        // If it's a Windows system shortcut (but not screenshot), consume it
+                        if is_windows_shortcut && !is_print_screen && event.state == ShortcutState::Pressed {
                             println!("[Shortcut] Blocked Windows system shortcut: mods={:?}, key={:?}", shortcut.mods, shortcut.key);
                             WINDOW_OPERATION_IN_PROGRESS.store(false, Ordering::SeqCst);
                             return; // Consume the shortcut, preventing Windows from handling it
+                        }
+                        
+                        // Allow screenshot shortcuts to pass through (don't block them)
+                        if (is_print_screen || (shortcut.mods.contains(Modifiers::SUPER) && shortcut.mods.contains(Modifiers::SHIFT) && shortcut.key == Code::KeyS)) && event.state == ShortcutState::Pressed {
+                            println!("[Shortcut] Allowing screenshot shortcut to pass through: mods={:?}, key={:?}", shortcut.mods, shortcut.key);
+                            WINDOW_OPERATION_IN_PROGRESS.store(false, Ordering::SeqCst);
+                            return; // Don't consume - let Windows handle it
                         }
                         
                         // Prevent concurrent operations - if one is in progress, skip
@@ -319,33 +332,47 @@ pub fn run() {
                                     // SHOW - use overlay command to show all windows
                                     let app_handle = app.clone();
                                     tauri::async_runtime::spawn(async move {
+                                        println!("[Shortcut] Starting show_overlay in async task...");
                                         use crate::commands::overlay::show_overlay;
-                                        if let Err(e) = show_overlay(app_handle.clone()).await {
-                                            eprintln!("Error showing overlay: {}", e);
-                                            OVERLAY_IS_VISIBLE.store(false, Ordering::SeqCst);
-                                            WINDOW_OPERATION_IN_PROGRESS.store(false, Ordering::SeqCst);
-                                        } else {
-                                            // Successfully shown - emit event
-                                            let _ = app_handle.emit("shortcut-triggered", true);
-                                            
-                                            // Clear flag immediately after synchronous operations
-                                            WINDOW_OPERATION_IN_PROGRESS.store(false, Ordering::SeqCst);
-                                            
-                                            // Mute in background (async, non-blocking)
-                                            use crate::services::focus_service::get_focus_service;
-                                            let is_manually_muted = {
-                                                let focus_service = get_focus_service().await;
-                                                let service = focus_service.lock().await;
-                                                service.is_notifications_muted().await
-                                            };
-                                            if !is_manually_muted {
-                                                #[cfg(windows)]
-                                                {
-                                                    use crate::utils::notification_suppression::mute_notifications_windows_api;
-                                                    if let Err(e) = mute_notifications_windows_api() {
-                                                        eprintln!("Error muting notifications: {}", e);
+                                        
+                                        // Add detailed logging before each step
+                                        println!("[Shortcut] About to call show_overlay...");
+                                        
+                                        match show_overlay(app_handle.clone()).await {
+                                            Ok(_) => {
+                                                println!("[Shortcut] show_overlay succeeded");
+                                                // Successfully shown - emit event
+                                                let _ = app_handle.emit("shortcut-triggered", true);
+                                                
+                                                // Clear flag immediately after synchronous operations
+                                                WINDOW_OPERATION_IN_PROGRESS.store(false, Ordering::SeqCst);
+                                                
+                                                // Mute in background (async, non-blocking)
+                                                println!("[Shortcut] Starting mute notifications check...");
+                                                use crate::services::focus_service::get_focus_service;
+                                                let is_manually_muted = {
+                                                    let focus_service = get_focus_service().await;
+                                                    let service = focus_service.lock().await;
+                                                    service.is_notifications_muted().await
+                                                };
+                                                if !is_manually_muted {
+                                                    #[cfg(windows)]
+                                                    {
+                                                        println!("[Shortcut] Muting notifications...");
+                                                        use crate::utils::notification_suppression::mute_notifications_windows_api;
+                                                        if let Err(e) = mute_notifications_windows_api() {
+                                                            eprintln!("Error muting notifications: {}", e);
+                                                        } else {
+                                                            println!("[Shortcut] Notifications muted successfully");
+                                                        }
                                                     }
                                                 }
+                                                println!("[Shortcut] show_overlay task completed successfully");
+                                            }
+                                            Err(e) => {
+                                                eprintln!("[Shortcut] Error showing overlay: {}", e);
+                                                OVERLAY_IS_VISIBLE.store(false, Ordering::SeqCst);
+                                                WINDOW_OPERATION_IN_PROGRESS.store(false, Ordering::SeqCst);
                                             }
                                         }
                                     });
@@ -543,6 +570,23 @@ pub fn run() {
                 println!("[Focus] App handle set for focus service");
             });
 
+            // Add window close handler to prevent app exit during OAuth
+            if let Some(window) = app.get_webview_window("main") {
+                window.on_window_event(|event| {
+                    use tauri::WindowEvent;
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        // Check if OAuth is in progress
+                        use crate::commands::calendar::OAUTH_IN_PROGRESS;
+                        use std::sync::atomic::Ordering;
+                        if OAUTH_IN_PROGRESS.load(Ordering::SeqCst) {
+                            println!("[OAuth] Window close requested during OAuth - preventing exit");
+                            // Prevent the window from closing (app will stay running for OAuth callback)
+                            api.prevent_close();
+                        }
+                    }
+                });
+            }
+
             // Always return Ok - don't fail setup if anything goes wrong
             // The app should continue running even if shortcuts or window operations fail
             Ok(())
@@ -560,6 +604,7 @@ pub fn run() {
             get_active_window,
             get_window_titles,
             get_process_names,
+            bring_window_to_front,
             register_shortcut,
             register_number_key_shortcuts,
             unregister_number_key_shortcuts,
@@ -573,6 +618,11 @@ pub fn run() {
             time_until_next_meeting,
             refresh_calendar_events,
             get_google_auth_url,
+            get_gmail_drafts,
+            get_gmail_draft,
+            send_gmail_email,
+            reply_to_gmail_email,
+            delete_gmail_draft,
             get_microsoft_auth_url,
             handle_oauth_callback,
             is_calendar_authenticated,
@@ -593,7 +643,14 @@ pub fn run() {
             open_folder,
             launch_url,
             get_installed_apps,
-            refresh_app_list_cache
+            refresh_app_list_cache,
+            commands::meeting::open_meeting_window,
+            commands::upload::upload_file_to_letmesell,
+            commands::upload::upload_file_bytes_to_letmesell,
+            commands::upload::pick_note_files,
+            commands::documents::open_documents_viewer,
+            commands::documents::get_uploaded_documents,
+            commands::documents::open_document
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

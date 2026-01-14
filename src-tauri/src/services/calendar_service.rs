@@ -13,10 +13,10 @@ use tokio::time::{interval, Duration as TokioDuration};
 
 // OAuth token storage
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct TokenData {
-    access_token: String,
-    refresh_token: Option<String>,
-    expires_at: Option<DateTime<Utc>>,
+pub struct TokenData {
+    pub access_token: String,
+    pub refresh_token: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 // Calendar provider type
@@ -271,6 +271,16 @@ impl CalendarService {
             .authorize_url(oauth2::CsrfToken::new_random)
             .add_scope(Scope::new(
                 "https://www.googleapis.com/auth/calendar.readonly".to_string(),
+            ))
+            // Add Gmail API scopes
+            .add_scope(Scope::new(
+                "https://www.googleapis.com/auth/gmail.readonly".to_string(),
+            ))
+            .add_scope(Scope::new(
+                "https://www.googleapis.com/auth/gmail.send".to_string(),
+            ))
+            .add_scope(Scope::new(
+                "https://www.googleapis.com/auth/gmail.compose".to_string(),
             ))
             .url();
 
@@ -599,7 +609,7 @@ impl CalendarService {
     }
 
     /// Retrieve OAuth token from secure storage
-    async fn get_token(provider: CalendarProvider) -> Result<TokenData, String> {
+    pub async fn get_token(provider: CalendarProvider) -> Result<TokenData, String> {
         let service_name = match provider {
             CalendarProvider::Google => "pause-menu-google-calendar",
             CalendarProvider::Microsoft => "pause-menu-microsoft-calendar",

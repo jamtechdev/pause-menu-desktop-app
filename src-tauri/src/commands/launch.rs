@@ -231,28 +231,41 @@ pub async fn launch_file(file_path: String) -> Result<(), String> {
 pub async fn open_folder(folder_path: String) -> Result<(), String> {
     println!("[Launch] Opening folder: {}", folder_path);
     
-    let path = Path::new(&folder_path);
-    if !path.exists() {
-        return Err(format!("Folder does not exist: {}", folder_path));
-    }
-    
-    if !path.is_dir() {
-        return Err(format!("Path is not a directory: {}", folder_path));
-    }
-    
     #[cfg(windows)]
     {
-        // Use ShellExecute for folders
-        match launch_with_shellexecute(&folder_path) {
+        // Handle Windows shell: paths (e.g., shell:Desktop, shell:Downloads)
+        let resolved_path = if folder_path.starts_with("shell:") {
+            folder_path.clone() // ShellExecute handles shell: paths directly
+        } else {
+            // Try to resolve common folder names
+            let path_lower = folder_path.to_lowercase();
+            if path_lower == "desktop" || path_lower == "downloads" || path_lower == "documents" ||
+               path_lower == "pictures" || path_lower == "videos" || path_lower == "music" {
+                format!("shell:{}", folder_path)
+            } else {
+                // Check if it's a valid path
+                let path = Path::new(&folder_path);
+                if !path.exists() {
+                    return Err(format!("Folder does not exist: {}", folder_path));
+                }
+                if !path.is_dir() {
+                    return Err(format!("Path is not a directory: {}", folder_path));
+                }
+                folder_path
+            }
+        };
+        
+        // Use ShellExecute for folders (handles shell: paths and regular paths)
+        match launch_with_shellexecute(&resolved_path) {
             Ok(_) => {
-                println!("[Launch] ✓ Opened folder via ShellExecute: {}", folder_path);
+                println!("[Launch] ✓ Opened folder via ShellExecute: {}", resolved_path);
                 Ok(())
             }
             Err(e) => {
                 eprintln!("[Launch] ShellExecute failed: {}, trying explorer...", e);
                 // Fallback: Use explorer command
                 Command::new("explorer")
-                    .arg(&folder_path)
+                    .arg(&resolved_path)
                     .spawn()
                     .map_err(|e| format!("Failed to open folder: {}", e))?;
                 Ok(())

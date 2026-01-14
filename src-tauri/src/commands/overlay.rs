@@ -9,7 +9,10 @@ use ::windows::Win32::Foundation::HWND;
 
 #[tauri::command]
 pub async fn show_overlay(app: tauri::AppHandle) -> Result<(), String> {
+    println!("[Overlay] show_overlay called - starting...");
+    
     // Block Windows system shortcuts when overlay is shown
+    println!("[Overlay] Step 1: Blocking Windows shortcuts...");
     use crate::commands::shortcuts::{block_windows_shortcuts, register_number_key_shortcuts};
     if let Err(e) = block_windows_shortcuts(app.clone()).await {
         eprintln!("Warning: Failed to block Windows shortcuts: {}", e);
@@ -18,6 +21,7 @@ pub async fn show_overlay(app: tauri::AppHandle) -> Result<(), String> {
     }
     
     // Register Escape key as global shortcut
+    println!("[Overlay] Step 2: Registering Escape shortcut...");
     use crate::commands::shortcuts::register_escape_shortcut;
     use crate::commands::shortcuts::register_arrow_key_shortcuts;
     if let Err(e) = register_escape_shortcut(app.clone()).await {
@@ -27,6 +31,7 @@ pub async fn show_overlay(app: tauri::AppHandle) -> Result<(), String> {
     }
     
     // Register arrow keys as global shortcuts (work without window focus)
+    println!("[Overlay] Step 3: Registering arrow key shortcuts...");
     if let Err(e) = register_arrow_key_shortcuts(app.clone()).await {
         eprintln!("Warning: Failed to register arrow key shortcuts: {}", e);
     } else {
@@ -34,11 +39,14 @@ pub async fn show_overlay(app: tauri::AppHandle) -> Result<(), String> {
     }
     
     // Register number key shortcuts (Alt+1 to Alt+7) for screen navigation
+    println!("[Overlay] Step 4: Registering number key shortcuts...");
     if let Err(e) = register_number_key_shortcuts(app.clone()).await {
         eprintln!("Warning: Failed to register number key shortcuts: {}", e);
     } else {
         println!("[Overlay] Registered number key shortcuts (Alt+1 to Alt+7)");
     }
+    
+    println!("[Overlay] Step 5: Getting window labels...");
     // Try to get window labels from app state
     let window_labels: Vec<String> = if let Some(state) = app.try_state::<Mutex<Vec<String>>>() {
         if let Ok(labels) = state.lock() {
@@ -125,7 +133,16 @@ pub async fn show_overlay(app: tauri::AppHandle) -> Result<(), String> {
         }
         
         // THEN: Show monitor-specific windows
-        MultiMonitorManager::show_all_windows(&app, &final_window_labels)?;
+        println!("[Overlay] Step 6: Showing monitor windows...");
+        match MultiMonitorManager::show_all_windows(&app, &final_window_labels) {
+            Ok(_) => {
+                println!("[Overlay] Successfully showed all monitor windows");
+            }
+            Err(e) => {
+                eprintln!("[Overlay] Error showing monitor windows: {}", e);
+                return Err(format!("Failed to show monitor windows: {}", e));
+            }
+        }
         
         // FINALLY: Double-check main window is still hidden
         if let Some(window) = app.get_webview_window("main") {

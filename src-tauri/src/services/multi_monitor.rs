@@ -106,9 +106,14 @@ impl MultiMonitorManager {
             // Get monitor info to position windows correctly
             match get_all_monitors() {
                 Ok(monitors) => {
+                    // Find the primary monitor index
+                    let primary_index = crate::utils::windows_api::get_primary_monitor_index(&monitors).unwrap_or(0);
+                    println!("[MultiMonitor] Primary monitor index: {}", primary_index);
+                    
                     for (index, label) in window_labels.iter().enumerate() {
                         if let Some(window) = app.get_webview_window(label) {
-                            println!("Showing overlay window: {} (monitor {})", label, index);
+                            let is_primary = index == primary_index;
+                            println!("Showing overlay window: {} (monitor {}, primary: {})", label, index, is_primary);
                             
                             // Get monitor info for this window
                             if index < monitors.len() {
@@ -144,11 +149,22 @@ impl MultiMonitorManager {
                                 eprintln!("Warning: Failed to unset fullscreen for {}: {}", label, e);
                             }
                             
-                            // Ensure window is focusable
-                            if let Err(e) = window.set_focusable(true) {
-                                eprintln!("Warning: Failed to set focusable for {}: {}", label, e);
+                            // CRITICAL: Only make the primary monitor window focusable
+                            // Other windows should NOT receive keyboard input to prevent split typing
+                            if is_primary {
+                                // Primary monitor: make it focusable and focus it
+                                if let Err(e) = window.set_focusable(true) {
+                                    eprintln!("Warning: Failed to set focusable for {}: {}", label, e);
+                                } else {
+                                    println!("✓ Set focusable for {} (PRIMARY)", label);
+                                }
                             } else {
-                                println!("✓ Set focusable for {}", label);
+                                // Secondary monitors: make them NON-focusable to prevent keyboard input
+                                if let Err(e) = window.set_focusable(false) {
+                                    eprintln!("Warning: Failed to set non-focusable for {}: {}", label, e);
+                                } else {
+                                    println!("✓ Set NON-focusable for {} (secondary monitor)", label);
+                                }
                             }
                             
                             // Show window
@@ -157,27 +173,30 @@ impl MultiMonitorManager {
                             } else {
                                 println!("✓ Shown overlay window: {} on monitor {}", label, index);
                                 
-                                // Force focus using Windows API
-                                #[cfg(windows)]
-                                {
-                                    if let Ok(hwnd_ptr) = window.hwnd() {
-                                        use ::windows::Win32::Foundation::HWND;
-                                        use ::windows::Win32::UI::WindowsAndMessaging::{SetForegroundWindow, BringWindowToTop, ShowWindow, SW_RESTORE};
-                                        let hwnd = HWND(hwnd_ptr.0 as isize);
-                                        unsafe {
-                                            let _ = BringWindowToTop(hwnd);
-                                            let _ = SetForegroundWindow(hwnd);
-                                            let _ = ShowWindow(hwnd, SW_RESTORE);
+                                // Only force focus for the primary monitor window
+                                if is_primary {
+                                    // Force focus using Windows API
+                                    #[cfg(windows)]
+                                    {
+                                        if let Ok(hwnd_ptr) = window.hwnd() {
+                                            use ::windows::Win32::Foundation::HWND;
+                                            use ::windows::Win32::UI::WindowsAndMessaging::{SetForegroundWindow, BringWindowToTop, ShowWindow, SW_RESTORE};
+                                            let hwnd = HWND(hwnd_ptr.0 as isize);
+                                            unsafe {
+                                                let _ = BringWindowToTop(hwnd);
+                                                let _ = SetForegroundWindow(hwnd);
+                                                let _ = ShowWindow(hwnd, SW_RESTORE);
+                                            }
+                                            println!("✓ Forced focus for {} using Windows API (PRIMARY)", label);
                                         }
-                                        println!("✓ Forced focus for {} using Windows API", label);
                                     }
-                                }
-                                
-                                // Also try Tauri's setFocus
-                                if let Err(e) = window.set_focus() {
-                                    eprintln!("Warning: Failed to set focus for {}: {}", label, e);
-                                } else {
-                                    println!("✓ Set focus for {} using Tauri API", label);
+                                    
+                                    // Also try Tauri's setFocus
+                                    if let Err(e) = window.set_focus() {
+                                        eprintln!("Warning: Failed to set focus for {}: {}", label, e);
+                                    } else {
+                                        println!("✓ Set focus for {} using Tauri API (PRIMARY)", label);
+                                    }
                                 }
                                 
                                 // Verify it's actually visible
@@ -204,10 +223,18 @@ impl MultiMonitorManager {
                 Err(e) => {
                     eprintln!("Failed to get monitors for positioning: {}", e);
                     // Fallback: just show windows without positioning
-                    for label in window_labels {
+                    // In fallback, make first window focusable, others not
+                    for (index, label) in window_labels.iter().enumerate() {
                         if let Some(window) = app.get_webview_window(label) {
                             window.set_always_on_top(true).ok();
                             window.set_fullscreen(false).ok();
+                            if index == 0 {
+                                // First window is focusable
+                                window.set_focusable(true).ok();
+                            } else {
+                                // Other windows are not focusable
+                                window.set_focusable(false).ok();
+                            }
                             window.show().ok();
                         }
                     }

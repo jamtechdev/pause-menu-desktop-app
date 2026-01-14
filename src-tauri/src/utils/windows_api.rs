@@ -118,6 +118,42 @@ pub fn get_monitor_info(hmonitor: HMONITOR) -> Result<MONITORINFO, String> {
     }
 }
 
+#[cfg(windows)]
+/// Get the primary monitor index (the one marked as primary in MONITORINFO)
+pub fn get_primary_monitor_index(monitors: &[HMONITOR]) -> Option<usize> {
+    unsafe {
+        // Find the monitor with MONITORINFOF_PRIMARY flag
+        for (index, monitor) in monitors.iter().enumerate() {
+            let mut monitor_info = MONITORINFO {
+                cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+                ..Default::default()
+            };
+            
+            if GetMonitorInfoW(*monitor, &mut monitor_info).as_bool() {
+                // Check if this is the primary monitor
+                // MONITORINFOF_PRIMARY is 0x00000001
+                if (monitor_info.dwFlags & 0x00000001) != 0 {
+                    println!("[WindowsAPI] Found primary monitor at index {}", index);
+                    return Some(index);
+                }
+            }
+        }
+        
+        // Fallback: return first monitor (index 0) if no primary found
+        if !monitors.is_empty() {
+            println!("[WindowsAPI] No primary monitor found, using first monitor (index 0)");
+            Some(0)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(not(windows))]
+pub fn get_primary_monitor_index(_monitors: &[u64]) -> Option<usize> {
+    Some(0)
+}
+
 #[cfg(not(windows))]
 pub fn get_monitor_info(_hmonitor: u64) -> Result<(), String> {
     Ok(())

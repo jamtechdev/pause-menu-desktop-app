@@ -17,9 +17,9 @@ interface OverlayState {
   navigateToScreen: (screenNumber: 1 | 2 | 3 | 4 | 5 | 6 | 7) => void;
 }
 
-// All screens in order for 1-7 navigation
-// Matches the order in ScreenSwitcher: continue, do, jump, focus, launch, windows, recent-files
-const ALL_SCREENS: Screen[] = ['continue', 'do', 'jump', 'focus', 'launch', 'windows', 'recent-files'];
+// All screens in order for 1-8 navigation
+// Matches the order in ScreenSwitcher: continue, do, jump, focus, launch, windows, recent-files, documents
+const ALL_SCREENS: Screen[] = ['continue', 'do', 'jump', 'focus', 'launch', 'windows', 'recent-files', 'documents'];
 
 export const useOverlayStore = create<OverlayState>((set) => ({
   // Initial state
@@ -44,8 +44,8 @@ export const useOverlayStore = create<OverlayState>((set) => ({
     set({ isKeyboardNavActive: active });
   },
 
-  // Navigate to screen by number (1-7)
-  navigateToScreen: (screenNumber: 1 | 2 | 3 | 4 | 5 | 6 | 7) => {
+  // Navigate to screen by number (1-8)
+  navigateToScreen: (screenNumber: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => {
     const screen = ALL_SCREENS[screenNumber - 1];
     if (screen) {
       set({ currentScreen: screen });

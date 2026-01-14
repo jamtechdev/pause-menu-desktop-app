@@ -1,0 +1,19 @@
+{
+  "name": "letmesell-api-server",
+  "version": "1.0.0",
+  "description": "Backend API server for LetMeSell",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.22.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.21.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.15",
+    "stripe": "^17.4.0"
+  }
+}

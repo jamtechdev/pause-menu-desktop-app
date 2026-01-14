@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useFocus } from '../../hooks/useFocus';
 import { api } from '../../services/api';
+import { useCalendar } from '../../hooks/useCalendar';
 import './../../styles/screens.css';
 import './../../styles/design-system.css';
 
 export const Focus: React.FC = () => {
   const { isActive, duration, remainingSeconds, startFocus, stopFocus } = useFocus();
+  const { nextMeeting, timeUntilMeeting } = useCalendar();
   const [customMinutes, setCustomMinutes] = useState<number>(30);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [meetingSuggestions, setMeetingSuggestions] = useState<any[]>([]);
@@ -15,6 +17,13 @@ export const Focus: React.FC = () => {
   const [showMuteOptions, setShowMuteOptions] = useState<boolean>(false);
   const [muteDuration, setMuteDuration] = useState<number>(30);
   const [isOpeningSettings, setIsOpeningSettings] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [pausedSeconds, setPausedSeconds] = useState<number | null>(null);
+  const [showRescheduleOptions, setShowRescheduleOptions] = useState<boolean>(false);
+  const [rescheduleOptIn, setRescheduleOptIn] = useState<boolean>(() => {
+    const saved = localStorage.getItem('focus_reschedule_opt_in');
+    return saved ? JSON.parse(saved) : false;
+  });
 
   // Check for active session when component becomes visible
   useEffect(() => {
@@ -100,6 +109,49 @@ export const Focus: React.FC = () => {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  // Calculate progress percentage for circular indicator
+  const getProgress = () => {
+    if (!isActive || remainingSeconds === null || duration === 0) return 0;
+    const totalSeconds = duration * 60;
+    const elapsed = totalSeconds - remainingSeconds;
+    return Math.min(100, Math.max(0, (elapsed / totalSeconds) * 100));
+  };
+
+  // Handle pause/resume
+  const handlePause = () => {
+    if (remainingSeconds !== null) {
+      setPausedSeconds(remainingSeconds);
+      setIsPaused(true);
+    }
+  };
+
+  const handleResume = () => {
+    setIsPaused(false);
+    setPausedSeconds(null);
+  };
+
+  // Handle meeting reschedule
+  const handleRescheduleMeeting = async (minutes: number) => {
+    if (!nextMeeting) return;
+    try {
+      setError(null);
+      // TODO: Implement reschedule API call
+      // await api.rescheduleMeeting(nextMeeting.id, minutes);
+      console.log(`[Focus] Rescheduling meeting by ${minutes} minutes`);
+      setShowRescheduleOptions(false);
+      // For now, just show a success message
+      alert(`Meeting rescheduled by ${minutes} minutes. (Backend implementation needed)`);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to reschedule meeting');
+      console.error('Error rescheduling meeting:', err);
+    }
+  };
+
+  // Save reschedule opt-in preference
+  useEffect(() => {
+    localStorage.setItem('focus_reschedule_opt_in', JSON.stringify(rescheduleOptIn));
+  }, [rescheduleOptIn]);
+
   const handleStartFocus = async (mode: 'focus1' | 'focus15' | 'focus25' | 'deepwork60' | 'clearinbox10' | 'prepformeeting' | 'custom', customMins?: number) => {
     try {
       setError(null);
@@ -172,7 +224,7 @@ export const Focus: React.FC = () => {
             </button>
           </div>
 
-          {/* Timer Display */}
+          {/* Timer Display with Circular Progress */}
           <div style={{
             textAlign: 'center',
             padding: '3rem 2rem',
@@ -181,21 +233,97 @@ export const Focus: React.FC = () => {
             marginBottom: '2rem',
             border: '2px solid var(--accent, #3b82f6)'
           }}>
+            {/* Circular Progress Indicator */}
             <div style={{
-              fontSize: '4rem',
-              fontWeight: 'bold',
-              fontFamily: 'monospace',
-              color: 'var(--accent, #3b82f6)',
-              marginBottom: '1rem'
+              position: 'relative',
+              width: '200px',
+              height: '200px',
+              margin: '0 auto 2rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}>
-              {formatTime(remainingSeconds)}
+              <svg width="200" height="200" style={{ transform: 'rotate(-90deg)' }}>
+                {/* Background circle */}
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="90"
+                  fill="none"
+                  stroke="rgba(255, 255, 255, 0.1)"
+                  strokeWidth="8"
+                />
+                {/* Progress circle */}
+                <circle
+                  cx="100"
+                  cy="100"
+                  r="90"
+                  fill="none"
+                  stroke="var(--accent, #3b82f6)"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 90}`}
+                  strokeDashoffset={`${2 * Math.PI * 90 * (1 - getProgress() / 100)}`}
+                  style={{
+                    transition: 'stroke-dashoffset 0.5s ease'
+                  }}
+                />
+              </svg>
+              {/* Time display in center */}
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                fontSize: '3rem',
+                fontWeight: 'bold',
+                fontFamily: 'monospace',
+                color: 'var(--accent, #3b82f6)'
+              }}>
+                {formatTime(isPaused ? pausedSeconds : remainingSeconds)}
+              </div>
             </div>
+            
+            {/* Pause/Resume Button */}
+            <div style={{ marginBottom: '1rem' }}>
+              {!isPaused ? (
+                <button
+                  onClick={handlePause}
+                  className="button button-secondary"
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    fontSize: '0.875rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  ⏸️ Pause
+                </button>
+              ) : (
+                <button
+                  onClick={handleResume}
+                  className="button button-primary"
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    fontSize: '0.875rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  ▶️ Resume
+                </button>
+              )}
+            </div>
+
             <div style={{
               fontSize: '1.25rem',
               opacity: 0.8,
               marginBottom: '0.5rem'
             }}>
               {duration} minute focus session
+              {isPaused && <span style={{ color: '#fbbf24', marginLeft: '0.5rem' }}>⏸️ Paused</span>}
             </div>
             <div style={{
               fontSize: '0.875rem',
@@ -415,6 +543,83 @@ export const Focus: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Upcoming Meeting Display */}
+          {nextMeeting && rescheduleOptIn && (
+            <div className="section" style={{ marginTop: '2rem' }}>
+              <div className="section-header">
+                <h3 className="section-title">📅 Upcoming Meeting</h3>
+                <button
+                  onClick={() => setShowRescheduleOptions(!showRescheduleOptions)}
+                  className="button button-secondary"
+                  style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                >
+                  Reschedule
+                </button>
+              </div>
+              <div style={{
+                padding: '1rem',
+                background: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '8px',
+                marginTop: '1rem'
+              }}>
+                <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.5rem' }}>
+                  {nextMeeting.title || 'Untitled Meeting'}
+                </div>
+                <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.25rem' }}>
+                  📅 {new Date(nextMeeting.start_time * 1000).toLocaleString()}
+                </div>
+                {timeUntilMeeting !== null && (
+                  <div style={{ fontSize: '0.875rem', opacity: 0.8 }}>
+                    ⏰ Starts in {formatTime(timeUntilMeeting)}
+                  </div>
+                )}
+                {showRescheduleOptions && (
+                  <div style={{
+                    marginTop: '1rem',
+                    padding: '1rem',
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem'
+                  }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>
+                      Reschedule by:
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      flexWrap: 'wrap'
+                    }}>
+                      <button
+                        onClick={() => handleRescheduleMeeting(15)}
+                        className="button button-secondary"
+                        style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                      >
+                        +15 minutes
+                      </button>
+                      <button
+                        onClick={() => handleRescheduleMeeting(30)}
+                        className="button button-secondary"
+                        style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                      >
+                        +30 minutes
+                      </button>
+                      <button
+                        onClick={() => setShowRescheduleOptions(false)}
+                        className="button button-text"
+                        style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Meeting Suggestions */}
           {meetingSuggestions.length > 0 && (
@@ -792,6 +997,39 @@ export const Focus: React.FC = () => {
           </div>
         </div>
 
+        {/* Reschedule Opt-in Preference */}
+        <div className="section" style={{ marginTop: '2rem' }}>
+          <div className="section-header">
+            <h3 className="section-title">⚙️ Meeting Reschedule</h3>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              cursor: 'pointer',
+              fontSize: '0.875rem'
+            }}>
+              <input
+                type="checkbox"
+                checked={rescheduleOptIn}
+                onChange={(e) => setRescheduleOptIn(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              <span>Enable meeting reschedule suggestions</span>
+            </label>
+          </div>
+          <div style={{
+            marginTop: '1rem',
+            padding: '0.75rem',
+            background: 'rgba(59, 130, 246, 0.05)',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            borderRadius: '6px',
+            fontSize: '0.75rem',
+            opacity: 0.8
+          }}>
+            💡 When enabled, you'll see upcoming meetings and can reschedule them by 15 or 30 minutes to avoid conflicts with your focus sessions.
+          </div>
+        </div>
+
         {/* Info Section */}
         <div style={{
           marginTop: '2rem',
@@ -808,6 +1046,7 @@ export const Focus: React.FC = () => {
             <li>Windows Focus Assist will be enabled (Alarms only mode)</li>
             <li>All notifications will be muted except alarms</li>
             <li>Timer will count down and notify you when complete</li>
+            <li>You can pause and resume the timer anytime</li>
             <li>Notifications will be automatically restored when focus ends</li>
             <li>Meeting conflicts will be detected and suggestions provided</li>
           </ul>

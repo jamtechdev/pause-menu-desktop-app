@@ -1,6 +1,10 @@
 use crate::models::action::CalendarEvent;
 use crate::services::calendar_service::{get_calendar_service, CalendarProvider};
 use tauri::Manager;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+// Flag to track if OAuth is in progress (prevents app exit when window closes)
+pub static OAUTH_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
 #[tauri::command]
 pub async fn get_calendar_events() -> Result<Vec<CalendarEvent>, String> {
@@ -54,7 +58,6 @@ pub async fn get_google_auth_url() -> Result<String, String> {
 pub async fn start_google_oauth_flow(app: tauri::AppHandle) -> Result<String, String> {
     use crate::services::calendar_service::CalendarProvider;
     use crate::services::oauth_server::OAuthServer;
-    use tauri::Emitter;
     
     println!("[OAuth] ========== start_google_oauth_flow COMMAND CALLED ==========");
     eprintln!("[OAuth] This log should appear in the TERMINAL, not browser console!");
@@ -81,13 +84,24 @@ pub async fn start_google_oauth_flow(app: tauri::AppHandle) -> Result<String, St
     println!("[OAuth] Auth URL preview: {}...", &auth_url[..auth_url.len().min(100)]);
     drop(service_guard);
     
-    // Hide the app window before starting OAuth
+    // Set OAuth in progress flag
+    OAUTH_IN_PROGRESS.store(true, Ordering::SeqCst);
+    
+    // Hide all windows so app appears closed
+    println!("[OAuth] Hiding all windows - app will appear closed");
     if let Some(window) = app.get_webview_window("main") {
-        println!("[OAuth] Hiding app window before OAuth...");
         let _ = window.hide();
     }
     
-    // Start OAuth flow in background
+    // Also hide any monitor windows
+    for i in 0..10 {
+        if let Some(window) = app.get_webview_window(&format!("overlay_monitor_{}", i)) {
+            let _ = window.hide();
+        }
+    }
+    
+    // Start OAuth flow in background task
+    // The app will stay running in background to handle OAuth callback
     let app_clone = app.clone();
     tokio::spawn(async move {
         println!("[OAuth] Starting OAuth flow in background...");
@@ -99,43 +113,53 @@ pub async fn start_google_oauth_flow(app: tauri::AppHandle) -> Result<String, St
                 let service = service.lock().await;
                 if let Err(e) = service.handle_oauth_callback(CalendarProvider::Google, code).await {
                     println!("[OAuth] Error handling callback: {}", e);
-                    let _ = app_clone.emit("oauth-error", e);
+                    // Show windows again even on error so user can see the error
+                    println!("[OAuth] Showing windows after OAuth error...");
+                    show_all_windows(&app_clone);
                 } else {
-                    println!("[OAuth] OAuth successful, emitting success event");
+                    println!("[OAuth] OAuth successful!");
                     
-                    // Show the app window after successful authentication (don't set focus to prevent crashes)
-                    if let Some(window) = app_clone.get_webview_window("main") {
-                        println!("[OAuth] Showing app window...");
-                        let _ = window.show();
-                        // DO NOT call set_focus() - it causes crashes
-                        // Remove always on top after showing (if it was set)
-                        let _ = window.set_always_on_top(false);
-                        println!("[OAuth] ✓ App window shown");
-                    }
-                    
-                    // Emit success event
-                    let _ = app_clone.emit("oauth-success", ());
-                    
-                    // Refresh events
+                    // Refresh events before showing windows
                     let _ = service.refresh_events().await;
+                    
+                    // Show all windows to reopen the app
+                    println!("[OAuth] Showing windows to reopen app...");
+                    show_all_windows(&app_clone);
                 }
             }
             Err(e) => {
                 println!("[OAuth] OAuth flow error: {}", e);
-                // Show app window even on error so user can see the error (don't set focus to prevent crashes)
-                if let Some(window) = app_clone.get_webview_window("main") {
-                    println!("[OAuth] Showing app window after error...");
-                    let _ = window.show();
-                    // DO NOT call set_focus() - it causes crashes
-                }
-                let _ = app_clone.emit("oauth-error", e);
+                // Show windows even on error so user can see the error
+                println!("[OAuth] Showing windows after OAuth error...");
+                show_all_windows(&app_clone);
             }
         }
+        
+        // Clear OAuth flag
+        OAUTH_IN_PROGRESS.store(false, Ordering::SeqCst);
     });
     
-    println!("[OAuth] Command returning success, OAuth flow started in background");
-    // Return the auth URL so frontend can verify it was generated
-    Ok(format!("OAuth flow started. Check terminal for auth URL."))
+    println!("[OAuth] All windows hidden. App will reopen automatically after authentication.");
+    
+    // This line should never be reached, but included for type safety
+    Ok(format!("OAuth flow started. App will close and reopen after authentication."))
+}
+
+fn show_all_windows(app: &tauri::AppHandle) {
+    // Show main window
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        println!("[OAuth] ✓ Main window shown");
+    }
+    
+    // Show monitor windows
+    for i in 0..10 {
+        if let Some(window) = app.get_webview_window(&format!("overlay_monitor_{}", i)) {
+            let _ = window.show();
+            println!("[OAuth] ✓ Monitor window {} shown", i);
+        }
+    }
 }
 
 #[tauri::command]

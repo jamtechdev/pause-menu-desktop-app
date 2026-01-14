@@ -53,6 +53,10 @@ export const api = {
     return invoke<string[]>('get_process_names');
   },
 
+  bringWindowToFront: async (handle: number): Promise<void> => {
+    return invoke('bring_window_to_front', { handle });
+  },
+
   // Shortcut operations
   registerShortcut: async (shortcut: string) => {
     return invoke('register_shortcut', { shortcut });
@@ -95,6 +99,27 @@ export const api = {
 
   refreshCalendarEvents: async () => {
     return invoke('refresh_calendar_events');
+  },
+
+  // Gmail operations
+  getGmailDrafts: async (): Promise<any[]> => {
+    return invoke('get_gmail_drafts');
+  },
+
+  getGmailDraft: async (draftId: string): Promise<any> => {
+    return invoke('get_gmail_draft', { draftId });
+  },
+
+  sendGmailEmail: async (to: string, subject: string, body: string, replyToMessageId?: string, threadId?: string): Promise<any> => {
+    return invoke('send_gmail_email', { to, subject, body, replyToMessageId, threadId });
+  },
+
+  replyToGmailEmail: async (messageId: string, to: string, subject: string, body: string): Promise<any> => {
+    return invoke('reply_to_gmail_email', { messageId, to, subject, body });
+  },
+
+  deleteGmailDraft: async (draftId: string): Promise<void> => {
+    return invoke('delete_gmail_draft', { draftId });
   },
 
   getGoogleAuthUrl: async () => {
@@ -173,6 +198,38 @@ export const api = {
 
   launchUrl: async (url: string) => {
     return invoke('launch_url', { url });
+  },
+
+  openMeetingWindow: async (url: string, title: string) => {
+    return invoke('open_meeting_window', { url, title });
+  },
+
+  uploadFileToLetMeSell: async (filePath: string) => {
+    return invoke<{ success: boolean; message: string; url?: string }>('upload_file_to_letmesell', { filePath });
+  },
+
+  uploadFileBytesToLetMeSell: async (fileBytes: Uint8Array, fileName: string, mimeType?: string) => {
+    return invoke<{ success: boolean; message: string; url?: string }>('upload_file_bytes_to_letmesell', { 
+      fileBytes: Array.from(fileBytes),
+      fileName,
+      mimeType 
+    });
+  },
+
+  pickNoteFiles: async () => {
+    return invoke<string[]>('pick_note_files');
+  },
+
+  openDocumentsViewer: async () => {
+    return invoke('open_documents_viewer');
+  },
+
+  getUploadedDocuments: async () => {
+    return invoke<any[]>('get_uploaded_documents');
+  },
+
+  openDocument: async (documentUrl: string, title: string) => {
+    return invoke('open_document', { documentUrl, title });
   },
 
   getInstalledApps: async (filterSystem?: boolean) => {

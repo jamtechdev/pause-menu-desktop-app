@@ -20,6 +20,30 @@ export const KeyboardNav: React.FC<KeyboardNavProps> = ({ onNavigate }) => {
         return;
       }
 
+      // CRITICAL: Check if typing in input - MUST be FIRST check
+      // Simple, direct check - is target an input?
+      const target = e.target as HTMLElement;
+      const activeElement = document.activeElement;
+      
+      const isInput = target && (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      );
+      
+      const activeIsInput = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.isContentEditable
+      );
+      
+      // If either is true, we're typing in an input - do NOTHING
+      if (isInput || activeIsInput) {
+        // For ALL keys when typing in input, do NOTHING
+        // Don't prevent default, don't stop propagation, just return
+        return;
+      }
+
       // Log important keys for debugging
       const importantKeys = ['Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'];
       if (importantKeys.includes(e.key)) {
@@ -82,6 +106,21 @@ export const KeyboardNav: React.FC<KeyboardNavProps> = ({ onNavigate }) => {
         console.log('[KeyboardNav] ✓✓✓ ENTER PRESSED');
         setKeyboardNavActive(true);
         onNavigate('enter');
+        return;
+      }
+
+      // Handle Tab key - navigate to next item (same as ArrowDown)
+      if (e.key === 'Tab' || e.code === 'Tab' || e.keyCode === 9) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('[KeyboardNav] ✓✓✓ TAB PRESSED - Navigating to next item');
+        setKeyboardNavActive(true);
+        // Tab = next item (down), Shift+Tab = previous item (up)
+        if (e.shiftKey) {
+          onNavigate('up');
+        } else {
+          onNavigate('down');
+        }
         return;
       }
     };

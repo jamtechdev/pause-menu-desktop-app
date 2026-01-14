@@ -12,6 +12,7 @@ import { Focus } from './components/screens/Focus';
 import { Launch } from './components/screens/Launch';
 import { Windows } from './components/screens/Windows';
 import { RecentFiles } from './components/screens/RecentFiles';
+import { Documents } from './components/screens/Documents';
 import { useOverlayStore } from './stores/overlayStore';
 import './App.css';
 import './styles/overlay.css';
@@ -53,14 +54,40 @@ function App() {
 
     const ensureFocus = async () => {
       try {
+        // CRITICAL: Don't steal focus if user is typing in an input
+        const activeElement = document.activeElement;
+        const isTypingInInput = activeElement && (
+          activeElement.tagName === 'INPUT' || 
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.isContentEditable
+        );
+        
+        // If user is typing, don't interfere with focus
+        if (isTypingInInput) {
+          return;
+        }
+        
         // Use Tauri window API to focus the window
         const { getCurrentWindow } = await import('@tauri-apps/api/window');
         const appWindow = getCurrentWindow();
+        
+        // CRITICAL: Only focus if this is the primary monitor window (overlay_monitor_0) or main window
+        // This prevents split typing in multi-monitor setups where multiple windows receive input
+        const windowLabel = appWindow.label || '';
+        const isPrimaryMonitor = windowLabel === 'overlay_monitor_0' || windowLabel === 'main';
+        
+        if (!isPrimaryMonitor) {
+          // This is a secondary monitor window - don't focus it to prevent keyboard input
+          console.log('[App] Skipping focus for secondary monitor window:', windowLabel);
+          return;
+        }
+        
         await appWindow.setFocus();
         
-        // Also focus the overlay container
+        // Only focus overlay container if no input is focused
+        // This prevents stealing focus from inputs
         const overlay = document.querySelector('.overlay-container') as HTMLElement;
-        if (overlay) {
+        if (overlay && !isTypingInInput) {
           overlay.focus();
         }
         
@@ -71,11 +98,21 @@ function App() {
         }
       } catch (error) {
         console.error('[App] Focus error:', error);
-        // Fallback to browser focus
-        window.focus();
-        const overlay = document.querySelector('.overlay-container') as HTMLElement;
-        if (overlay) {
-          overlay.focus();
+        // Only try to focus if document has focus (meaning this window might be the active one)
+        // And if user is not typing in an input
+        const activeElement = document.activeElement;
+        const isTypingInInput = activeElement && (
+          activeElement.tagName === 'INPUT' || 
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.isContentEditable
+        );
+        
+        if (document.hasFocus() && !isTypingInInput) {
+          window.focus();
+          const overlay = document.querySelector('.overlay-container') as HTMLElement;
+          if (overlay) {
+            overlay.focus();
+          }
         }
       }
     };
@@ -118,13 +155,13 @@ function App() {
           setOverlayVisible(shouldBeVisible);
         });
 
-        // Listen for number key presses (1-7)
+        // Listen for number key presses (1-8)
         const unlistenNumberKey = await listen('number-key-pressed', (event: any) => {
           const screenNum = event.payload as number;
           console.log('[App] Number key pressed:', screenNum);
           const store = useOverlayStore.getState();
           if (store.isOverlayVisible) {
-            store.navigateToScreen(screenNum as 1 | 2 | 3 | 4 | 5 | 6 | 7);
+            store.navigateToScreen(screenNum as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8);
           }
         });
         
@@ -138,8 +175,8 @@ function App() {
             // Handle arrow left/right for screen navigation (works on all monitors)
             if (direction === 'left' || direction === 'right') {
               // Use the same screen order as ScreenSwitcher and overlayStore
-              // Order: continue, do, jump, focus, launch, windows, recent-files
-              const allScreens: Screen[] = ['continue', 'do', 'jump', 'focus', 'launch', 'windows', 'recent-files'];
+              // Order: continue, do, jump, focus, launch, windows, recent-files, documents
+              const allScreens: Screen[] = ['continue', 'do', 'jump', 'focus', 'launch', 'windows', 'recent-files', 'documents'];
               const currentScreen = store.currentScreen;
               const currentIndex = allScreens.indexOf(currentScreen);
               
@@ -220,13 +257,13 @@ function App() {
     console.log('[App] Navigate:', direction);
     
     // Dispatch a custom event that screen components can listen to
+    // Only dispatch to window to avoid duplicate events
     const event = new CustomEvent('overlay-navigate', {
       detail: { direction },
-      bubbles: true,
+      bubbles: false, // Don't bubble to avoid duplicate handling
       cancelable: true
     });
     window.dispatchEvent(event);
-    document.dispatchEvent(event);
   };
 
   // Global keyboard handler at App level - always active
@@ -237,6 +274,38 @@ function App() {
       
       // Only handle keys when overlay is visible
       if (!store.isOverlayVisible) {
+        return;
+      }
+
+      // CRITICAL: Check if typing in input - MUST be FIRST check
+      // Check target FIRST (most reliable in capture phase)
+      const target = e.target as HTMLElement;
+      const activeElement = document.activeElement;
+      
+      // Simple, direct check - is target an input?
+      const isInput = target && (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable ||
+        target.closest('input') ||
+        target.closest('textarea')
+      );
+      
+      // Also check active element
+      const activeIsInput = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.isContentEditable ||
+        (activeElement as HTMLElement).closest?.('input') ||
+        (activeElement as HTMLElement).closest?.('textarea')
+      );
+      
+      // If either is true, we're typing in an input
+      if (isInput || activeIsInput) {
+        // For ALL keys when typing in input, do NOTHING
+        // Don't prevent default, don't stop propagation, just return
+        // This allows the input to handle everything normally
+        console.log('[App] Input focused - ignoring key:', e.key);
         return;
       }
 
@@ -273,7 +342,7 @@ function App() {
         return; // Exit early, don't process other keys
       }
       
-      // Handle Arrow keys - prevent default and stop propagation FIRST
+      // Handle Arrow keys - only when NOT typing in an input
       if (e.key.startsWith('Arrow') || e.code.startsWith('Arrow')) {
         e.preventDefault();
         e.stopPropagation();
@@ -318,32 +387,26 @@ function App() {
           return;
         }
         
-        // Arrow Up/Down: Scroll within current screen
+        // Arrow Up/Down: Let KeyboardNav handle it to avoid duplicate event dispatching
+        // KeyboardNav will dispatch the overlay-navigate event for screen components
         if (direction === 'up' || direction === 'down') {
-          const scrollableContainer = document.querySelector('.command-center-body') as HTMLElement;
-          if (scrollableContainer) {
-            const scrollAmount = 100;
-            if (direction === 'up') {
-              scrollableContainer.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
-            } else {
-              scrollableContainer.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-            }
-          }
-          
-          // Also dispatch event for screen components that might want to handle it
-          handleNavigate(direction);
+          // Don't handle here - let KeyboardNav handle it
+          // Just prevent default to avoid browser scrolling
           return;
         }
         
         return;
       }
 
-      // Prevent default for navigation keys
+      // Prevent default for navigation keys (only when NOT typing in input)
+      // Note: We already handled arrow keys above, so this is for number keys and Enter
+      // BUT: Don't prevent default if input is focused (already checked above)
       const navigationKeys = [
-        'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
-        'Enter', '1', '2', '3', '4', '5', '6', '7'
+        'Enter', '1', '2', '3', '4', '5', '6', '7', '8'
       ];
       
+      // Only prevent default for navigation keys if input is NOT focused
+      // (We already returned early if input is focused, so this is safe)
       if (navigationKeys.includes(e.key)) {
         e.preventDefault();
         e.stopPropagation();
@@ -402,6 +465,11 @@ function App() {
           store.setKeyboardNavActive(true);
           store.navigateToScreen(7);
           break;
+        case '8':
+          console.log('[App] Navigating to screen 8 (Documents)');
+          store.setKeyboardNavActive(true);
+          store.navigateToScreen(8);
+          break;
       }
     };
 
@@ -443,6 +511,8 @@ function App() {
         return <Windows />;
       case 'recent-files':
         return <RecentFiles />;
+      case 'documents':
+        return <Documents />;
       default:
         return <Continue onToggleOverlay={toggleOverlay} />;
     }
@@ -469,11 +539,14 @@ function App() {
             </ScreenTransition>
           </div>
           <div className="command-center-footer">
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <span>Press <kbd style={{ padding: '2px 6px', background: 'var(--bg-elevated)', borderRadius: '4px', fontSize: '11px' }}>Ctrl+Space</kbd> to toggle</span>
-              <span>Press <kbd style={{ padding: '2px 6px', background: 'var(--bg-elevated)', borderRadius: '4px', fontSize: '11px' }}>1-7</kbd> to switch screens</span>
+              <span>Press <kbd style={{ padding: '2px 6px', background: 'var(--bg-elevated)', borderRadius: '4px', fontSize: '11px' }}>1-8</kbd> to switch screens</span>
+              <span>Press <kbd style={{ padding: '2px 6px', background: 'var(--bg-elevated)', borderRadius: '4px', fontSize: '11px' }}>← →</kbd> to navigate screens</span>
+              <span>Press <kbd style={{ padding: '2px 6px', background: 'var(--bg-elevated)', borderRadius: '4px', fontSize: '11px' }}>↑ ↓</kbd> or <kbd style={{ padding: '2px 6px', background: 'var(--bg-elevated)', borderRadius: '4px', fontSize: '11px' }}>Tab</kbd> to navigate items</span>
+              <span>Press <kbd style={{ padding: '2px 6px', background: 'var(--bg-elevated)', borderRadius: '4px', fontSize: '11px' }}>Enter</kbd> to select</span>
+              <span>Press <kbd style={{ padding: '2px 6px', background: 'var(--bg-elevated)', borderRadius: '4px', fontSize: '11px' }}>Esc</kbd> to close</span>
             </div>
-            <span>Press <kbd style={{ padding: '2px 6px', background: 'var(--bg-elevated)', borderRadius: '4px', fontSize: '11px' }}>Esc</kbd> to close</span>
           </div>
         </div>
       </Overlay>

@@ -247,6 +247,7 @@ pub async fn block_windows_shortcuts(app: tauri::AppHandle) -> Result<(), String
     registered.clear();
     
     // Block Windows system shortcuts that trigger modals
+    // Note: We do NOT block Win+Shift+S (screenshot) or Print Screen to allow screenshots
     // Note: Win key alone is tricky - we'll try multiple approaches
     let shortcuts_to_block = vec![
         // Try Win key alone with different approaches
@@ -264,10 +265,13 @@ pub async fn block_windows_shortcuts(app: tauri::AppHandle) -> Result<(), String
         (Some(Modifiers::SUPER), Code::KeyK, "Win+K (Cast)"),
         // Win+N (opens Notification Center)
         (Some(Modifiers::SUPER), Code::KeyN, "Win+N (Notifications)"),
-        // Win+S (opens Search)
+        // Win+S (opens Search) - but NOT Win+Shift+S (screenshot)
         (Some(Modifiers::SUPER), Code::KeyS, "Win+S (Search)"),
         // Win+T (opens Taskbar)
         (Some(Modifiers::SUPER), Code::KeyT, "Win+T (Taskbar)"),
+        // Note: We intentionally do NOT block:
+        // - Win+Shift+S (Windows Snipping Tool) - allow screenshots
+        // - Print Screen - allow screenshots
     ];
     
     let mut success_count = 0;

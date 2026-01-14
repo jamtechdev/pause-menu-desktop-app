@@ -67,6 +67,19 @@ export const Overlay: React.FC<OverlayProps> = ({ children, isVisible }) => {
   }
 
   const handleFocus = async (e?: React.MouseEvent | React.FocusEvent) => {
+    // CRITICAL: Don't steal focus if user is typing in an input
+    const activeElement = document.activeElement;
+    const isTypingInInput = activeElement && (
+      activeElement.tagName === 'INPUT' || 
+      activeElement.tagName === 'TEXTAREA' ||
+      activeElement.isContentEditable
+    );
+    
+    // If user is typing in an input, don't interfere
+    if (isTypingInInput) {
+      return;
+    }
+    
     // Prevent event from bubbling if needed
     if (e) {
       e.preventDefault();
@@ -78,12 +91,13 @@ export const Overlay: React.FC<OverlayProps> = ({ children, isVisible }) => {
       const { getCurrentWindow } = await import('@tauri-apps/api/window');
       const appWindow = getCurrentWindow();
       await appWindow.setFocus();
-      if (overlayRef.current) {
+      // Only focus overlay if no input is focused
+      if (overlayRef.current && !isTypingInInput) {
         overlayRef.current.focus();
       }
     } catch (error) {
       window.focus();
-      if (overlayRef.current) {
+      if (overlayRef.current && !isTypingInInput) {
         overlayRef.current.focus();
       }
     }

@@ -9,8 +9,11 @@ use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 use ::windows::{
+    core::PWSTR,
     Win32::Foundation::*,
     Win32::UI::WindowsAndMessaging::*,
+    Win32::System::Threading::*,
+    Win32::System::ProcessStatus::*,
 };
 
 pub struct WindowTracker {
@@ -350,10 +353,74 @@ impl WindowTracker {
     #[cfg(windows)]
     /// Get executable path from process ID
     fn get_executable_path(process_id: u32) -> Result<String, String> {
-        // For now, return a placeholder path
-        // TODO: Implement proper path retrieval using psapi crate or QueryFullProcessImageNameW
-        // This requires additional Windows API features or external crates
-        Ok(format!("C:\\Process_{}.exe", process_id))
+        unsafe {
+            // Open process handle with limited access (just to query name)
+            let handle = OpenProcess(
+                PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION,
+                false, // bInheritHandle
+                process_id,
+            );
+
+            if handle.is_err() {
+                // Try with limited information access (works for more processes)
+                let handle = OpenProcess(
+                    PROCESS_QUERY_LIMITED_INFORMATION,
+                    false,
+                    process_id,
+                );
+                
+                if handle.is_err() {
+                    return Err(format!("Failed to open process {}", process_id));
+                }
+                
+                return Self::query_process_image_name(handle.unwrap());
+            }
+
+            Self::query_process_image_name(handle.unwrap())
+        }
+    }
+
+    #[cfg(windows)]
+    /// Query the full image name for a process handle
+    fn query_process_image_name(handle: HANDLE) -> Result<String, String> {
+        unsafe {
+            // QueryFullProcessImageNameW requires a buffer
+            let mut buffer = vec![0u16; 260]; // MAX_PATH
+            let mut size = buffer.len() as u32;
+
+            // Try QueryFullProcessImageNameW (Windows Vista+)
+            // Get a pointer to the buffer
+            let result = QueryFullProcessImageNameW(
+                handle,
+                PROCESS_NAME_WIN32, // 0 = full path
+                PWSTR(buffer.as_mut_ptr()),
+                &mut size,
+            );
+
+            if result.is_ok() && size > 0 && size <= buffer.len() as u32 {
+                let path = String::from_utf16_lossy(&buffer[..size as usize]);
+                let _ = CloseHandle(handle); // Clean up handle
+                return Ok(path);
+            }
+
+            // Fallback: Try with native format
+            let mut size = buffer.len() as u32;
+            let result = QueryFullProcessImageNameW(
+                handle,
+                PROCESS_NAME_NATIVE, // 1 = native format
+                PWSTR(buffer.as_mut_ptr()),
+                &mut size,
+            );
+
+            if result.is_ok() && size > 0 && size <= buffer.len() as u32 {
+                let path = String::from_utf16_lossy(&buffer[..size as usize]);
+                let _ = CloseHandle(handle);
+                return Ok(path);
+            }
+
+            let _ = CloseHandle(handle);
+            Err("Failed to query process image name".to_string())
+        }
     }
 
     #[cfg(not(windows))]

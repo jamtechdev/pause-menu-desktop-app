@@ -5,6 +5,14 @@ import { OAuthCallback } from './OAuthCallback';
 import { api } from '../../services/api';
 import './../../styles/screens.css';
 
+// Helper to extract URL from text
+const extractFirstUrl = (text: string | null | undefined): string | null => {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+)/i;
+  const match = text.match(urlRegex);
+  return match ? match[1] : null;
+};
+
 export const CalendarEvents: React.FC = () => {
   const { 
     events, 
@@ -378,13 +386,27 @@ export const CalendarEvents: React.FC = () => {
       <div className="section">
         <div className="section-header">
           <h3 className="section-title">📅 Calendar</h3>
-          <button 
-            onClick={refreshEvents}
-            className="button button-text"
-            style={{ fontSize: '0.875rem', padding: '0.25rem 0.5rem' }}
-          >
-            Refresh
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {isAuthenticated && (
+              <button 
+                onClick={handleAuthenticate}
+                className="button button-secondary"
+                disabled={loading}
+                style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                title="Re-authenticate to enable Gmail access"
+              >
+                Re-connect
+              </button>
+            )}
+            <button 
+              onClick={refreshEvents}
+              className="button button-text"
+              style={{ fontSize: '0.875rem', padding: '0.25rem 0.5rem' }}
+              disabled={loading}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Next Meeting Card */}
@@ -435,6 +457,27 @@ export const CalendarEvents: React.FC = () => {
           <div className="list">
             {upcomingEvents.slice(0, 5).map((event) => {
               const isNext = nextMeeting?.id === event.id;
+              
+              // Calculate time until meeting
+              const now = Math.floor(Date.now() / 1000);
+              const startTime = event.start_time;
+              const secondsUntil = startTime > now ? startTime - now : null;
+              
+              // Check if meeting is starting soon (within 10 minutes)
+              const isStartingSoon = secondsUntil !== null && secondsUntil <= 10 * 60 && secondsUntil >= -5 * 60;
+              
+              // Extract meeting link - try multiple methods
+              let meetingLink = extractFirstUrl(event.location || null) || extractFirstUrl(event.description || null);
+              
+              // If no link found, try to extract from full text
+              if (!meetingLink) {
+                const fullText = `${event.location || ''} ${event.description || ''}`;
+                const urlMatch = fullText.match(/(https?:\/\/[^\s]+)/i);
+                if (urlMatch) {
+                  meetingLink = urlMatch[1];
+                }
+              }
+              
               return (
                 <div 
                   key={event.id} 
@@ -445,7 +488,7 @@ export const CalendarEvents: React.FC = () => {
                   } : {}}
                 >
                   <div className="list-item-icon">📅</div>
-                  <div className="list-item-content">
+                  <div className="list-item-content" style={{ flex: 1 }}>
                     <div className="list-item-title">{event.title}</div>
                     <div className="list-item-subtitle">
                       {formatMeetingDate(event.start_time)} • {formatMeetingTime(event.start_time)} - {formatMeetingTime(event.end_time)}
@@ -465,10 +508,70 @@ export const CalendarEvents: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <div className="list-item-meta">
-                    <span className="list-item-time">
-                      {formatMeetingTime(event.start_time)}
-                    </span>
+                  <div className="list-item-meta" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                    {isNext && timeUntilMeeting !== null && (
+                      <div style={{
+                        padding: '0.25rem 0.75rem',
+                        background: 'var(--accent, #3b82f6)',
+                        borderRadius: '999px',
+                        fontSize: '0.75rem',
+                        color: 'white',
+                        fontWeight: '500'
+                      }}>
+                        {formatTimeUntil(timeUntilMeeting)}
+                      </div>
+                    )}
+                    {isStartingSoon && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log('[Calendar] Join meeting clicked for:', event.title);
+                          
+                          // Always open meeting inside the app, not in browser
+                          const urlToOpen = meetingLink || 'https://meet.google.com/new';
+                          console.log('[Calendar] Opening meeting inside app:', urlToOpen);
+                          
+                          // Dispatch custom event to trigger meeting view in Do component
+                          const meetingEvent = new CustomEvent('openMeeting', {
+                            detail: {
+                              url: urlToOpen,
+                              title: event.title || 'Meeting'
+                            }
+                          });
+                          window.dispatchEvent(meetingEvent);
+                        }}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: 'var(--accent, #3b82f6)',
+                          border: 'none',
+                          borderRadius: '6px',
+                          color: 'white',
+                          cursor: 'pointer',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          whiteSpace: 'nowrap',
+                          boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = '#2563eb';
+                          e.currentTarget.style.transform = 'scale(1.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'var(--accent, #3b82f6)';
+                          e.currentTarget.style.transform = 'scale(1)';
+                        }}
+                        title={meetingLink ? 'Join meeting' : 'Open in calendar (no join link found)'}
+                      >
+                        📞 Join Meeting
+                      </button>
+                    )}
+                    {!isStartingSoon && (
+                      <span className="list-item-time">
+                        {formatMeetingTime(event.start_time)}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
