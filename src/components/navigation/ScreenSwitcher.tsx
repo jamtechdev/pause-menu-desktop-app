@@ -1,7 +1,7 @@
 import React from 'react';
 import './../../styles/navigation.css';
 
-export type Screen = 'continue' | 'do' | 'jump' | 'focus' | 'windows' | 'recent-files' | 'launch' | 'documents';
+export type Screen = 'continue' | 'do' | 'jump' | 'focus' | 'windows' | 'recent-files' | 'launch' | 'documents' | 'profile';
 
 interface ScreenSwitcherProps {
   currentScreen: Screen;
@@ -21,6 +21,7 @@ export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
     { id: 'windows', label: 'Windows', icon: '🪟' },
     { id: 'recent-files', label: 'Files', icon: '📁' },
     { id: 'documents', label: 'Documents', icon: '📄' },
+    { id: 'profile', label: 'Profile', icon: '👤' },
   ];
 
   return (

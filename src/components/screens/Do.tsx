@@ -272,8 +272,7 @@ export const Do: React.FC = () => {
       const getMeetingLink = (event: CalendarEvent): string | null => {
         return extractFirstUrl(event.location || null) || extractFirstUrl(event.description || null);
       };
-      
-      
+                                                                                                
       // Check if there's already an active focus session
       let isFocusActive = false;
       let currentSession: any = null;

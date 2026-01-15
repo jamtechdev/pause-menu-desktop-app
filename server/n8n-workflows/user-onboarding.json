@@ -1,0 +1,86 @@
+{
+  "name": "User Onboarding - LetMeSell",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "user-onboarding",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-user-onboarding",
+      "name": "Webhook - User Onboarding",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "user-onboarding"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"User onboarding workflow triggered\" } }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendEmail",
+        "fromEmail": "noreply@letmesell.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Welcome to Pause Menu! 🎉",
+        "emailType": "html",
+        "message": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }\n    .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }\n    .button { display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }\n    .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>Welcome to Pause Menu!</h1>\n    </div>\n    <div class=\"content\">\n      <h2>Hi {{ $json.name }}! 👋</h2>\n      <p>Thank you for joining Pause Menu - your productivity command center!</p>\n      <p>We're excited to help you streamline your workflow and boost your productivity.</p>\n      <h3>Getting Started:</h3>\n      <ol>\n        <li><strong>Download the App:</strong> Get the Windows desktop app from our website</li>\n        <li><strong>Log In:</strong> Use your email to log in</li>\n        <li><strong>Explore Features:</strong> Start using our powerful features</li>\n      </ol>\n      <p style=\"text-align: center;\">\n        <a href=\"https://letmesell.com/download\" class=\"button\">Download App</a>\n      </p>\n      <h3>What's Next?</h3>\n      <ul>\n        <li>Explore keyboard shortcuts for lightning-fast access</li>\n        <li>Customize your workspace</li>\n        <li>Upgrade to Pro for unlimited features</li>\n      </ul>\n      <p>If you have any questions, feel free to reach out to our support team.</p>\n      <p>Happy productivity!<br>The Pause Menu Team</p>\n    </div>\n    <div class=\"footer\">\n      <p>© 2024 Pause Menu. All rights reserved.</p>\n      <p><a href=\"https://letmesell.com\">Visit our website</a> | <a href=\"https://letmesell.com/contact\">Contact Support</a></p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "send-welcome-email",
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - User Onboarding": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+

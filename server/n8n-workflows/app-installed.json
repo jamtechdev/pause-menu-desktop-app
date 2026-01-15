@@ -1,0 +1,136 @@
+{
+  "name": "App Installed - LetMeSell",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "app-installed",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-app-installed",
+      "name": "Webhook - App Installed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "app-installed"
+    },
+    {
+      "parameters": {
+        "operation": "sendEmail",
+        "fromEmail": "noreply@letmesell.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "🚀 Pause Menu Setup Guide",
+        "emailType": "html",
+        "message": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }\n    .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }\n    .step { background: white; padding: 20px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #6366f1; }\n    .step-number { display: inline-block; width: 30px; height: 30px; background: #6366f1; color: white; border-radius: 50%; text-align: center; line-height: 30px; font-weight: bold; margin-right: 10px; }\n    .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }\n    .code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: monospace; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🚀 Welcome to Pause Menu!</h1>\n      <p>Your app is installed and ready to use</p>\n    </div>\n    <div class=\"content\">\n      <h2>Quick Setup Guide</h2>\n      <div class=\"step\">\n        <span class=\"step-number\">1</span>\n        <strong>Log In</strong>\n        <p>Use your email address to log in to the app. You'll receive a magic link for secure authentication.</p>\n      </div>\n      <div class=\"step\">\n        <span class=\"step-number\">2</span>\n        <strong>Keyboard Shortcuts</strong>\n        <p>Press <span class=\"code\">Ctrl+K</span> (or <span class=\"code\">Cmd+K</span> on Mac) to open the command center. This is your productivity hub!</p>\n      </div>\n      <div class=\"step\">\n        <span class=\"step-number\">3</span>\n        <strong>Explore Features</strong>\n        <p>Start using features like quick notes, task management, and more. Everything is accessible from the command center.</p>\n      </div>\n      <div class=\"step\">\n        <span class=\"step-number\">4</span>\n        <strong>Upgrade to Pro</strong>\n        <p>Unlock unlimited features, advanced analytics, and team collaboration with a Pro subscription.</p>\n      </div>\n      <h3>💡 Pro Tips</h3>\n      <ul>\n        <li>Customize your workspace in Settings</li>\n        <li>Use keyboard shortcuts for faster navigation</li>\n        <li>Check out our documentation for advanced features</li>\n      </ul>\n      <p><strong>Device Info:</strong><br>\n      OS: {{ $json.os }}<br>\n      App Version: {{ $json.appVersion }}<br>\n      Device Type: {{ $json.deviceType }}</p>\n      <p>If you need help, our support team is always here for you!</p>\n      <p>Happy productivity!<br>The Pause Menu Team</p>\n    </div>\n    <div class=\"footer\">\n      <p>© 2024 Pause Menu. All rights reserved.</p>\n      <p><a href=\"https://letmesell.com\">Visit our website</a> | <a href=\"https://letmesell.com/contact\">Contact Support</a></p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "send-setup-email",
+      "name": "Send Setup Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Installations",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now.toISO() }}",
+            "userId": "={{ $json.userId }}",
+            "deviceId": "={{ $json.deviceId }}",
+            "deviceType": "={{ $json.deviceType }}",
+            "os": "={{ $json.os }}",
+            "appVersion": "={{ $json.appVersion }}",
+            "installedAt": "={{ $json.installedAt }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "track-installation",
+      "name": "Track Installation",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1050, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"App installation tracked successfully\" } }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - App Installed": {
+      "main": [
+        [
+          {
+            "node": "Send Setup Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Setup Email": {
+      "main": [
+        [
+          {
+            "node": "Track Installation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Track Installation": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+

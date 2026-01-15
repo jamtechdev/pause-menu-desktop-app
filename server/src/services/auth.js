@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { UserModel } = require('../models/user');
 const emailService = require('./email');
+const n8nService = require('./n8n');
 
 // Store magic link tokens (in production, use Redis or database)
 const magicLinkTokens = new Map();
@@ -11,7 +12,7 @@ const magicLinkTokens = new Map();
 class AuthService {
   constructor() {
     this.JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-    this.MAGIC_LINK_EXPIRY = 15 * 60 * 1000; // 15 minutes
+    this.MAGIC_LINK_EXPIRY = 60 * 60 * 1000; // 60 minutes (1 hour)
   }
 
   /**
@@ -64,7 +65,11 @@ class AuthService {
   async sendMagicLink(email, baseUrl) {
     const token = this.generateMagicLinkToken(email);
     await emailService.sendMagicLink(email, token, baseUrl);
-    return { success: true, message: 'Magic link sent to your email' };
+    return { 
+      success: true, 
+      message: 'Magic link sent to your email',
+      token: token // Return token so we can construct the URL
+    };
   }
 
   /**
@@ -76,10 +81,21 @@ class AuthService {
 
     // Find or create user
     let user = await UserModel.findByEmail(email);
+    const isNewUser = !user;
+    
     if (!user) {
       user = await UserModel.create({
         email,
         name: email.split('@')[0], // Default name from email
+        subscriptionStatus: 'free', // Initialize free tier
+      });
+    }
+
+    // Trigger n8n workflow for new user onboarding
+    if (isNewUser) {
+      // Fire and forget - don't wait for n8n response
+      n8nService.triggerUserOnboarding(user.toJSON()).catch(err => {
+        console.error('[Auth] Failed to trigger user onboarding workflow:', err.message);
       });
     }
 
@@ -90,6 +106,7 @@ class AuthService {
       success: true,
       user: user.toJSON(),
       token: jwtToken,
+      isNewUser,
     };
   }
 

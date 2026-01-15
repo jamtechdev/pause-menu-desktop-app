@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "pause-menu",
-  "version": "0.1.0",
+  "productName": "Pause Menu",
+  "version": "1.0.0",
   "identifier": "com.jamtech.pause-menu",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -30,17 +30,43 @@
       "capabilities": [
         "default"
       ]
-    }
+    },
+    "withGlobalTauri": false
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
-  }
+    ],
+    "copyright": "© 2026 JamTech. All rights reserved.",
+    "category": "Productivity",
+    "shortDescription": "Pause Menu - Your productivity command center",
+    "longDescription": "Pause Menu is a powerful productivity tool that helps you manage your workflow, documents, and tasks efficiently. Access everything you need with a single keyboard shortcut.",
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "10.13",
+      "exceptionDomain": "",
+      "signingIdentity": null,
+      "entitlements": null
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "tsp": false,
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "allowDowngrades": false,
+      "nsis": {}
+    }
+  },
+  "plugins": {}
 }

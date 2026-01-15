@@ -476,7 +476,13 @@ export const Jump: React.FC = () => {
                 role="button"
                 tabIndex={-1}
                 onClick={() => handleItemClick(index)}
-                onMouseEnter={() => setSelectedIndex(index)}
+                onMouseEnter={(e) => {
+                  setSelectedIndex(index);
+                  if (!isSelected) {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                  }
+                }}
                 style={{
                   padding: '14px 16px',
                   background: isSelected 
@@ -491,12 +497,6 @@ export const Jump: React.FC = () => {
                   alignItems: 'center',
                   gap: '14px',
                   transform: isSelected ? 'translateX(2px)' : 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                  }
                 }}
                 onMouseLeave={(e) => {
                   if (!isSelected) {
@@ -563,7 +563,13 @@ export const Jump: React.FC = () => {
                 role="button"
                 tabIndex={-1}
                 onClick={() => handleItemClick(index)}
-                onMouseEnter={() => setSelectedIndex(index)}
+                onMouseEnter={(e) => {
+                  setSelectedIndex(index);
+                  if (!isSelected) {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                  }
+                }}
                 style={{
                   padding: '14px 16px',
                   background: isSelected 
@@ -578,12 +584,6 @@ export const Jump: React.FC = () => {
                   alignItems: 'center',
                   gap: '14px',
                   transform: isSelected ? 'translateX(2px)' : 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                  }
                 }}
                 onMouseLeave={(e) => {
                   if (!isSelected) {
@@ -651,7 +651,13 @@ export const Jump: React.FC = () => {
                 role="button"
                 tabIndex={-1}
                 onClick={() => handleItemClick(index)}
-                onMouseEnter={() => setSelectedIndex(index)}
+                onMouseEnter={(e) => {
+                  setSelectedIndex(index);
+                  if (!isSelected) {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                  }
+                }}
                 style={{
                   padding: '14px 16px',
                   background: isSelected 
@@ -666,12 +672,6 @@ export const Jump: React.FC = () => {
                   alignItems: 'center',
                   gap: '14px',
                   transform: isSelected ? 'translateX(2px)' : 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                  }
                 }}
                 onMouseLeave={(e) => {
                   if (!isSelected) {

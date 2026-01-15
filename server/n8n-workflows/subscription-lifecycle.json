@@ -1,0 +1,224 @@
+{
+  "name": "Subscription Lifecycle - LetMeSell",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "subscription-lifecycle",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-subscription",
+      "name": "Webhook - Subscription",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "subscription-lifecycle"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-created",
+              "leftValue": "={{ $json.eventType }}",
+              "rightValue": "created",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "condition-updated",
+              "leftValue": "={{ $json.eventType }}",
+              "rightValue": "updated",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "condition-canceled",
+              "leftValue": "={{ $json.eventType }}",
+              "rightValue": "canceled",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "if-event-type",
+      "name": "IF - Event Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendEmail",
+        "fromEmail": "noreply@letmesell.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "🎉 Subscription Activated - Welcome to Pro!",
+        "emailType": "html",
+        "message": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }\n    .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }\n    .badge { display: inline-block; padding: 6px 12px; background: #10b981; color: white; border-radius: 20px; font-size: 12px; font-weight: bold; }\n    .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>🎉 Welcome to Pro!</h1>\n    </div>\n    <div class=\"content\">\n      <p><span class=\"badge\">ACTIVE</span></p>\n      <h2>Your subscription is now active!</h2>\n      <p>Thank you for upgrading to <strong>Pro</strong>! You now have access to all premium features:</p>\n      <ul>\n        <li>✅ Unlimited documents</li>\n        <li>✅ Advanced analytics</li>\n        <li>✅ Custom branding</li>\n        <li>✅ Team collaboration</li>\n        <li>✅ Priority support</li>\n        <li>✅ API access</li>\n      </ul>\n      <p><strong>Plan:</strong> {{ $json.plan }}<br>\n      <strong>Status:</strong> {{ $json.status }}<br>\n      <strong>Current Period:</strong> {{ $json.currentPeriodStart }} to {{ $json.currentPeriodEnd }}</p>\n      <p>You can start using all Pro features immediately in the app!</p>\n      <p>If you have any questions, our support team is here to help.</p>\n      <p>Happy productivity!<br>The Pause Menu Team</p>\n    </div>\n    <div class=\"footer\">\n      <p>© 2024 Pause Menu. All rights reserved.</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-created",
+      "name": "Email - Created",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1050, 200],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendEmail",
+        "fromEmail": "noreply@letmesell.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Subscription Updated",
+        "emailType": "html",
+        "message": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }\n    .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }\n    .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>Subscription Updated</h1>\n    </div>\n    <div class=\"content\">\n      <h2>Your subscription has been updated</h2>\n      <p>We wanted to let you know that your subscription details have been updated.</p>\n      <p><strong>Plan:</strong> {{ $json.plan }}<br>\n      <strong>Status:</strong> {{ $json.status }}<br>\n      <strong>Current Period:</strong> {{ $json.currentPeriodStart }} to {{ $json.currentPeriodEnd }}</p>\n      <p>If you didn't make this change, please contact our support team immediately.</p>\n      <p>Best regards,<br>The Pause Menu Team</p>\n    </div>\n    <div class=\"footer\">\n      <p>© 2024 Pause Menu. All rights reserved.</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-updated",
+      "name": "Email - Updated",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1050, 300],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendEmail",
+        "fromEmail": "noreply@letmesell.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Subscription Canceled",
+        "emailType": "html",
+        "message": "<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }\n    .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }\n    .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>Subscription Canceled</h1>\n    </div>\n    <div class=\"content\">\n      <h2>We're sorry to see you go</h2>\n      <p>Your subscription has been canceled. You'll continue to have access to Pro features until the end of your current billing period.</p>\n      <p><strong>Plan:</strong> {{ $json.plan }}<br>\n      <strong>Status:</strong> {{ $json.status }}</p>\n      <p>After your current period ends, your account will be downgraded to the Free tier.</p>\n      <p>If you change your mind, you can resubscribe at any time from your account settings.</p>\n      <p>We'd love to hear your feedback on how we can improve. Please don't hesitate to reach out.</p>\n      <p>Thank you for being part of Pause Menu!<br>The Pause Menu Team</p>\n    </div>\n    <div class=\"footer\">\n      <p>© 2024 Pause Menu. All rights reserved.</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "email-canceled",
+      "name": "Email - Canceled",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1050, 400],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"message\": \"Subscription lifecycle workflow completed\" } }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Subscription": {
+      "main": [
+        [
+          {
+            "node": "IF - Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Event Type": {
+      "main": [
+        [
+          {
+            "node": "Email - Created",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email - Updated",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email - Canceled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email - Created": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email - Updated": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email - Canceled": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}
+

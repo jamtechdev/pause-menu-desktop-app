@@ -9,6 +9,7 @@ pub mod launch;
 pub mod meeting;
 pub mod upload;
 pub mod documents;
+pub mod auth;
 
 pub use windows::*;
 pub use shortcuts::*;
@@ -21,4 +22,5 @@ pub use launch::*;
 pub use meeting::*;
 pub use upload::*;
 pub use documents::*;
+pub use auth::*;
 

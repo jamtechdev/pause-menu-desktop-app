@@ -14,12 +14,12 @@ interface OverlayState {
   toggleOverlay: () => void;
   setKeyboardNavActive: (active: boolean) => void;
   // Navigation helpers
-  navigateToScreen: (screenNumber: 1 | 2 | 3 | 4 | 5 | 6 | 7) => void;
+  navigateToScreen: (screenNumber: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9) => void;
 }
 
-// All screens in order for 1-8 navigation
-// Matches the order in ScreenSwitcher: continue, do, jump, focus, launch, windows, recent-files, documents
-const ALL_SCREENS: Screen[] = ['continue', 'do', 'jump', 'focus', 'launch', 'windows', 'recent-files', 'documents'];
+// All screens in order for 1-9 navigation
+// Matches the order in ScreenSwitcher: continue, do, jump, focus, launch, windows, recent-files, documents, profile
+const ALL_SCREENS: Screen[] = ['continue', 'do', 'jump', 'focus', 'launch', 'windows', 'recent-files', 'documents', 'profile'];
 
 export const useOverlayStore = create<OverlayState>((set) => ({
   // Initial state
@@ -44,8 +44,8 @@ export const useOverlayStore = create<OverlayState>((set) => ({
     set({ isKeyboardNavActive: active });
   },
 
-  // Navigate to screen by number (1-8)
-  navigateToScreen: (screenNumber: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) => {
+  // Navigate to screen by number (1-9)
+  navigateToScreen: (screenNumber: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9) => {
     const screen = ALL_SCREENS[screenNumber - 1];
     if (screen) {
       set({ currentScreen: screen });

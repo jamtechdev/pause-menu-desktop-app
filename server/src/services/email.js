@@ -34,6 +34,14 @@ class EmailService {
           smtpConfig.service = 'gmail';
         }
 
+        // Special handling for Outlook/Office 365
+        if (process.env.SMTP_HOST.includes('office365.com') || process.env.SMTP_HOST.includes('outlook.com')) {
+          // Outlook requires STARTTLS and proper authentication
+          smtpConfig.requireTLS = true;
+          smtpConfig.secure = false; // Use STARTTLS, not SSL
+          console.log('[Email] Using Outlook/Office 365 SMTP configuration');
+        }
+
         // Special handling for localhost/testing (Papercut, MailHog, etc.)
         if (process.env.SMTP_HOST === 'localhost' || process.env.SMTP_HOST === '127.0.0.1') {
           console.log('[Email] Using local SMTP server (Papercut/MailHog) for testing');
@@ -64,14 +72,15 @@ class EmailService {
   }
 
   async sendMagicLink(email, token, baseUrl = 'http://localhost:3000') {
-    const magicLink = `${baseUrl}/api/auth/verify?token=${token}&email=${encodeURIComponent(email)}`;
+    // Add desktop_app=true parameter so server redirects to localhost callback for desktop app
+    const magicLink = `${baseUrl}/api/auth/verify?token=${token}&email=${encodeURIComponent(email)}&desktop_app=true`;
     
     const emailContent = {
       from: process.env.FROM_EMAIL || process.env.SMTP_USER || 'noreply@letmesell.com',
       to: email,
       subject: 'Sign in to LetMeSell',
       html: this.getMagicLinkTemplate(magicLink, email),
-      text: `Click this link to sign in to LetMeSell: ${magicLink}\n\nThis link will expire in 15 minutes.`,
+      text: `Click this link to sign in to LetMeSell: ${magicLink}\n\nThis link will expire in 60 minutes.`,
     };
 
     if (this.initialized && this.transporter) {
@@ -118,7 +127,7 @@ class EmailService {
   <div style="background: #ffffff; padding: 40px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 8px 8px;">
     <h2 style="color: #333; margin-top: 0;">Sign in to your account</h2>
     <p style="color: #666; font-size: 16px;">
-      Click the button below to sign in to LetMeSell. This link will expire in 15 minutes.
+      Click the button below to sign in to LetMeSell. This link will expire in 60 minutes.
     </p>
     <div style="text-align: center; margin: 30px 0;">
       <a href="${magicLink}" 

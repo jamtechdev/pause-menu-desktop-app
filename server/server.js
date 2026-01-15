@@ -1,3 +1,6 @@
+// Load environment variables
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -23,11 +26,13 @@ const authRoutes = require('./src/routes/auth');
 const subscriptionRoutes = require('./src/routes/subscription');
 const userRoutes = require('./src/routes/user');
 const analyticsRoutes = require('./src/routes/analytics');
+const n8nRoutes = require('./src/routes/n8n');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/n8n', n8nRoutes);
 
 // Configure multer for file uploads
 const upload = multer({
@@ -316,6 +321,113 @@ app.get('/', (req, res) => {
   }
 });
 
+// Subscription success/cancel pages
+app.get('/subscription/success', (req, res) => {
+  const { session_id } = req.query;
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Subscription Successful - LetMeSell</title>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          margin: 0;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+          background: white;
+          padding: 40px;
+          border-radius: 12px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+          text-align: center;
+          max-width: 400px;
+        }
+        h1 { color: #10b981; margin-top: 0; }
+        p { color: #666; }
+        .btn {
+          display: inline-block;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 24px;
+          border-radius: 6px;
+          text-decoration: none;
+          margin-top: 20px;
+          cursor: pointer;
+          border: none;
+        }
+        .btn:hover { background: #2563eb; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>✅ Subscription Successful!</h1>
+        <p>Your subscription has been activated. You can now access all Pro features.</p>
+        <p>You can close this window and return to the app.</p>
+        <button class="btn" onclick="window.close()">Close</button>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+app.get('/subscription/cancel', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Subscription Cancelled - LetMeSell</title>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100vh;
+          margin: 0;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+          background: white;
+          padding: 40px;
+          border-radius: 12px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+          text-align: center;
+          max-width: 400px;
+        }
+        h1 { color: #ef4444; margin-top: 0; }
+        p { color: #666; }
+        .btn {
+          display: inline-block;
+          background: #3b82f6;
+          color: white;
+          padding: 12px 24px;
+          border-radius: 6px;
+          text-decoration: none;
+          margin-top: 20px;
+          cursor: pointer;
+          border: none;
+        }
+        .btn:hover { background: #2563eb; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>❌ Subscription Cancelled</h1>
+        <p>Your subscription checkout was cancelled.</p>
+        <p>You can try again anytime.</p>
+        <button class="btn" onclick="window.close()">Close</button>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'LetMeSell API server is running' });
@@ -331,9 +443,21 @@ app.listen(PORT, () => {
   console.log(`   GET    /api/user/profile        - Get user profile`);
   console.log(`   PUT    /api/user/profile        - Update user profile`);
   console.log(`   GET    /api/subscription/status - Get subscription status`);
-  console.log(`   POST   /api/subscription/checkout - Create checkout session`);
+  console.log(`   POST   /api/subscription/checkout - Create checkout session (authenticated)`);
+  console.log(`   POST   /api/subscription/checkout-public - Create checkout session (public)`);
+  console.log(`   GET    /api/subscription/history - Get subscription history`);
+  console.log(`   POST   /api/subscription/cancel - Cancel subscription`);
+  console.log(`   GET    /api/subscription/publishable-key - Get Stripe publishable key`);
   console.log(`   POST   /api/subscription/webhook - Stripe webhook`);
+  console.log(`   GET    /subscription/success - Subscription success page`);
+  console.log(`   GET    /subscription/cancel - Subscription cancel page`);
   console.log(`   POST   /api/analytics/event     - Track analytics event`);
+  console.log(`\n🔗 n8n Workflows:`);
+  console.log(`   POST   /api/n8n/app-installed  - Track app installation`);
+  console.log(`   POST   /api/n8n/upload-notes   - Upload notes workflow`);
+  console.log(`   POST   /api/n8n/calendar-event - Calendar automation`);
+  console.log(`   POST   /api/n8n/crm-sync       - CRM integration`);
+  console.log(`   GET    /api/n8n/status         - n8n integration status`);
   console.log(`\n📤 File Upload:`);
   console.log(`   POST   /upload                  - Upload file`);
   console.log(`   GET    /files                   - List files`);

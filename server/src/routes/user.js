@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const { UserModel } = require('../models/user');
 const { authenticateToken } = require('../middleware/auth');
+const stripeService = require('../services/stripe');
 
 /**
  * GET /api/user/profile
@@ -77,6 +78,53 @@ router.put('/profile', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to update profile',
+    });
+  }
+});
+
+/**
+ * GET /api/user/subscription-status
+ * Get subscription status by email (public endpoint for web app)
+ */
+router.get('/subscription-status', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid email address is required',
+      });
+    }
+
+    // Find user by email
+    const user = await UserModel.findByEmail(email);
+
+    if (!user) {
+      return res.json({
+        success: true,
+        subscriptionStatus: 'free',
+        subscription: {
+          plan: 'free',
+          active: false,
+        },
+      });
+    }
+
+    // Get subscription status
+    const userId = user._id ? user._id.toString() : user.id;
+    const subscription = await stripeService.getSubscriptionStatus(userId);
+
+    res.json({
+      success: true,
+      subscriptionStatus: subscription.plan,
+      subscription,
+    });
+  } catch (error) {
+    console.error('[User] Subscription status error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to get subscription status',
     });
   }
 });

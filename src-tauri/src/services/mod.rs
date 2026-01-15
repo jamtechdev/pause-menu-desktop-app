@@ -7,4 +7,5 @@ pub mod focus_service;
 pub mod gmail_service;
 pub mod multi_monitor;
 pub mod oauth_server;
+pub mod magic_link_server;
 

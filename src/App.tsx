@@ -13,7 +13,11 @@ import { Launch } from './components/screens/Launch';
 import { Windows } from './components/screens/Windows';
 import { RecentFiles } from './components/screens/RecentFiles';
 import { Documents } from './components/screens/Documents';
+import { Profile } from './components/screens/Profile';
 import { useOverlayStore } from './stores/overlayStore';
+import { useAuthStore } from './stores/authStore';
+import { Login } from './components/screens/Login';
+import { authService } from './services/auth';
 import './App.css';
 import './styles/overlay.css';
 import './styles/screens.css';
@@ -28,7 +32,73 @@ function App() {
     setOverlayVisible,
     toggleOverlay,
   } = useOverlayStore();
+  const { isAuthenticated, token, user, setLoading, logout, login } = useAuthStore();
   const [showSplash, setShowSplash] = useState(true);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Check authentication on app startup
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // First check if server is available
+        const serverAvailable = await authService.checkServerHealth();
+        if (!serverAvailable) {
+          console.warn('[App] Server is not available - showing login screen');
+          // Don't try to validate token if server isn't running
+          setCheckingAuth(false);
+          setLoading(false);
+          return;
+        }
+        
+        if (token) {
+          try {
+            setLoading(true);
+            // Validate token by fetching user profile and restore session
+            const userData = await authService.getCurrentUser(token);
+            if (userData && userData.id) {
+              // Token is valid, ensure user is logged in with fresh data
+              console.log('[App] Token valid, restoring user session:', userData.email);
+              login(userData, token);
+              console.log('[App] User session restored successfully');
+            } else {
+              // Token is invalid, logout
+              console.log('[App] Token invalid - no user data returned, logging out');
+              logout();
+            }
+          } catch (error: any) {
+            console.error('[App] Auth check failed:', error);
+            // If it's a connection error, just show login - don't crash
+            if (error?.message?.includes('fetch') || error?.message?.includes('network')) {
+              console.warn('[App] Connection error - server may not be running');
+              logout(); // Show login screen
+            } else {
+              // Token is invalid or expired
+              console.log('[App] Token validation failed, logging out');
+              logout();
+            }
+          } finally {
+            setLoading(false);
+            setCheckingAuth(false);
+          }
+        } else {
+          // No token, just set checking to false
+          setCheckingAuth(false);
+        }
+      } catch (error) {
+        // Catch any unexpected errors to prevent crashes
+        console.error('[App] Unexpected error during auth check:', error);
+        setCheckingAuth(false);
+        setLoading(false);
+      }
+    };
+
+    // Add a small delay to ensure app is fully initialized
+    const timer = setTimeout(() => {
+      checkAuth();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []); // Only run on mount
 
   // Show splash screen for 2 seconds on app startup
   useEffect(() => {
@@ -470,6 +540,11 @@ function App() {
           store.setKeyboardNavActive(true);
           store.navigateToScreen(8);
           break;
+        case '9':
+          console.log('[App] Navigating to screen 9 (Profile)');
+          store.setKeyboardNavActive(true);
+          store.navigateToScreen(9);
+          break;
       }
     };
 
@@ -495,6 +570,30 @@ function App() {
     };
   }, []); // Empty deps - use getState() to get current values
 
+  // Show login screen if not authenticated
+  if (checkingAuth) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      }}>
+        <div style={{
+          color: 'white',
+          fontSize: '18px',
+        }}>
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
   const renderScreen = () => {
     switch (currentScreen) {
       case 'continue':
@@ -513,6 +612,8 @@ function App() {
         return <RecentFiles />;
       case 'documents':
         return <Documents />;
+      case 'profile':
+        return <Profile />;
       default:
         return <Continue onToggleOverlay={toggleOverlay} />;
     }

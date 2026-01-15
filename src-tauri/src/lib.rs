@@ -650,7 +650,9 @@ pub fn run() {
             commands::upload::pick_note_files,
             commands::documents::open_documents_viewer,
             commands::documents::get_uploaded_documents,
-            commands::documents::open_document
+            commands::documents::open_document,
+            commands::auth::open_magic_link_popup,
+            commands::auth::start_magic_link_callback_server
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
