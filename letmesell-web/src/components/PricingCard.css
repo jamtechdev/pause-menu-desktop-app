@@ -7,7 +7,7 @@
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(10px) saturate(180%);
   -webkit-backdrop-filter: blur(10px) saturate(180%);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .pricing-card::before {
@@ -46,32 +46,38 @@
 
 .popular-badge {
   position: absolute;
-  top: -12px;
+  top: -14px;
   left: 50%;
   transform: translateX(-50%);
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: white;
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 24px;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.5), 0 0 0 2px rgba(99, 102, 241, 0.2);
+  white-space: nowrap;
 }
 
 .current-badge {
   position: absolute;
-  top: -12px;
+  top: -14px;
   left: 50%;
   transform: translateX(-50%);
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 24px;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5), 0 0 0 2px rgba(16, 185, 129, 0.2);
+  white-space: nowrap;
 }
 
 .pricing-header {

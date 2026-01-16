@@ -28,7 +28,7 @@ export const Pricing: React.FC = () => {
     {
       name: 'Pro',
       monthlyPrice: '$19.99',
-      yearlyPrice: '$199.90', // 2 months free (10 months price)
+      yearlyPrice: '$179.91', // 25% discount
       features: [
         'Unlimited documents',
         'Advanced analytics',
@@ -43,7 +43,7 @@ export const Pricing: React.FC = () => {
     {
       name: 'Enterprise',
       monthlyPrice: '$49.99',
-      yearlyPrice: '$499.90', // 2 months free (10 months price)
+      yearlyPrice: '$449.91', // 25% discount
       features: [
         'Everything in Pro',
         'Dedicated support',
@@ -119,7 +119,7 @@ export const Pricing: React.FC = () => {
             </button>
             <span className={billingPeriod === 'yearly' ? 'active' : ''}>
               Yearly
-              <span className="savings-badge">Save 17%</span>
+              <span className="savings-badge">Save 25%</span>
             </span>
           </div>
         </div>
@@ -147,10 +147,9 @@ export const Pricing: React.FC = () => {
             const price = billingPeriod === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice;
             const period = billingPeriod === 'monthly' ? 'month' : 'year';
             
-            // Calculate monthly equivalent for yearly plans (2 months free = 10 months price)
+            // Calculate monthly equivalent for yearly plans (25% discount)
             let monthlyEquivalent: string | null = null;
             if (billingPeriod === 'yearly' && plan.name !== 'Free') {
-              const monthlyPrice = parseFloat(plan.monthlyPrice.replace('$', ''));
               const yearlyPrice = parseFloat(plan.yearlyPrice.replace('$', ''));
               const equivalent = (yearlyPrice / 12).toFixed(2);
               monthlyEquivalent = `$${equivalent}`;

@@ -136,6 +136,7 @@
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 32px;
   margin-bottom: 64px;
+  padding-top: 24px;
 }
 
 .error-message {

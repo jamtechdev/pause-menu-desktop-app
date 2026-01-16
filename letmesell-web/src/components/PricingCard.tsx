@@ -24,7 +24,7 @@ export const PricingCard: React.FC<PricingCardProps> = ({
 }) => {
   return (
     <div className={`pricing-card ${popular ? 'popular' : ''} ${currentPlan ? 'current' : ''}`}>
-      {popular && <div className="popular-badge">Most Popular</div>}
+      {popular && <div className="popular-badge p-4">Most Popular </div>}
       {currentPlan && <div className="current-badge">Current Plan</div>}
       
       <div className="pricing-header">
