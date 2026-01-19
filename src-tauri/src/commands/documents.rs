@@ -11,7 +11,6 @@ pub async fn open_documents_viewer(app: AppHandle) -> Result<(), String> {
         let _ = existing.set_focus();
         return Ok(());
     }
-
     // Create the documents viewer window
     let url = WebviewUrl::External(
         "http://localhost:3000/".parse()
@@ -65,11 +64,11 @@ pub async fn get_uploaded_documents() -> Result<Vec<serde_json::Value>, String> 
         return Err(format!("Failed to fetch documents: {}", response.status()));
     }
     
-    let json: serde_json::Value = response.json().await
+    let json: serde_json::Value = response.json::<serde_json::Value>().await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
     
     if let Some(files) = json.get("files").and_then(|f| f.as_array()) {
-        Ok(files.clone())
+        Ok(files.iter().cloned().collect())
     } else {
         Ok(Vec::new())
     }

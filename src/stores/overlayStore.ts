@@ -18,8 +18,9 @@ interface OverlayState {
 }
 
 // All screens in order for 1-9 navigation
-// Matches the order in ScreenSwitcher: continue, do, jump, focus, launch, windows, recent-files, documents, profile
-const ALL_SCREENS: Screen[] = ['continue', 'do', 'jump', 'focus', 'launch', 'windows', 'recent-files', 'documents', 'profile'];
+// Matches the order in ScreenSwitcher: continue, do, jump, focus, windows, recent-files, documents, profile
+// Note: launch is commented out, so screens shifted: 5=windows, 6=recent-files, 7=documents, 8=profile
+const ALL_SCREENS: Screen[] = ['continue', 'do', 'jump', 'focus', 'windows', 'recent-files', 'documents', 'profile'];
 
 export const useOverlayStore = create<OverlayState>((set) => ({
   // Initial state

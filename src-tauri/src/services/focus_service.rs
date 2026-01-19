@@ -392,8 +392,29 @@ impl FocusService {
         }
 
         // Restore notifications and Focus Assist
+        // Always unmute notifications when stopping focus, even if they were muted independently
+        println!("[Focus] Stopping focus mode - unmuting notifications...");
+        
+        // Stop the notification blocker first
+        #[cfg(windows)]
+        {
+            use crate::utils::notification_suppression::stop_notification_blocker;
+            stop_notification_blocker();
+            println!("[Focus] Stopped notification blocker");
+        }
+        
         self.restore_focus_assist().await?;
         self.restore_notifications().await?;
+        
+        // Also explicitly unmute notifications (handles both focus-muted and independently-muted notifications)
+        let is_muted = self.is_notifications_muted().await;
+        if is_muted {
+            println!("[Focus] Notifications are muted - unmuting them...");
+            if let Err(e) = self.unmute_notifications().await {
+                eprintln!("[Focus] Warning: Failed to unmute notifications: {}", e);
+                // Continue anyway - we tried
+            }
+        }
 
         // Clear session
         *session = None;

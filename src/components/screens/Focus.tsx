@@ -7,11 +7,12 @@ import './../../styles/design-system.css';
 
 export const Focus: React.FC = () => {
   const { isActive, duration, remainingSeconds, startFocus, stopFocus } = useFocus();
-  const { nextMeeting, timeUntilMeeting } = useCalendar();
+  const { nextMeeting, timeUntilMeeting, refreshEvents, isAuthenticated } = useCalendar();
   const [customMinutes, setCustomMinutes] = useState<number>(30);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [meetingSuggestions, setMeetingSuggestions] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isNotificationsMuted, setIsNotificationsMuted] = useState<boolean>(false);
   const [muteRemainingSeconds, setMuteRemainingSeconds] = useState<number | null>(null);
   const [showMuteOptions, setShowMuteOptions] = useState<boolean>(false);
@@ -135,22 +136,39 @@ export const Focus: React.FC = () => {
     if (!nextMeeting) return;
     try {
       setError(null);
-      // TODO: Implement reschedule API call
-      // await api.rescheduleMeeting(nextMeeting.id, minutes);
-      console.log(`[Focus] Rescheduling meeting by ${minutes} minutes`);
+      console.log(`[Focus] Rescheduling meeting ${nextMeeting.id} by ${minutes} minutes`);
+      
+      // Call the reschedule API
+      const updatedEvent = await api.rescheduleMeeting(nextMeeting.id, minutes);
+      
+      console.log('[Focus] ✓ Meeting rescheduled successfully:', updatedEvent);
       setShowRescheduleOptions(false);
-      // For now, just show a success message
-      alert(`Meeting rescheduled by ${minutes} minutes. (Backend implementation needed)`);
+      
+      // Show success message
+      setSuccessMessage(`Meeting "${nextMeeting.title}" rescheduled by ${minutes} minutes`);
+      setTimeout(() => setSuccessMessage(null), 5000);
+      
+      // Refresh calendar events to get updated meeting times
+      await api.refreshCalendarEvents();
     } catch (err: any) {
-      setError(err?.message || 'Failed to reschedule meeting');
+      const errorMsg = err?.message || 'Failed to reschedule meeting';
+      setError(errorMsg);
       console.error('Error rescheduling meeting:', err);
     }
   };
 
-  // Save reschedule opt-in preference
+  // Save reschedule opt-in preference and refresh calendar when enabled
   useEffect(() => {
     localStorage.setItem('focus_reschedule_opt_in', JSON.stringify(rescheduleOptIn));
-  }, [rescheduleOptIn]);
+    
+    // If reschedule is enabled, refresh calendar events to ensure we have the latest meetings
+    if (rescheduleOptIn) {
+      console.log('[Focus] Reschedule enabled, refreshing calendar events...');
+      refreshEvents().catch(err => {
+        console.error('[Focus] Error refreshing calendar events:', err);
+      });
+    }
+  }, [rescheduleOptIn, refreshEvents]);
 
   const handleStartFocus = async (mode: 'focus1' | 'focus15' | 'focus25' | 'deepwork60' | 'clearinbox10' | 'prepformeeting' | 'custom', customMins?: number) => {
     try {
@@ -209,7 +227,8 @@ export const Focus: React.FC = () => {
   };
 
   // Active focus session view
-  if (isActive) {
+  // Hide immediately if timer reaches 0 or session is not active
+  if (isActive && remainingSeconds !== null && remainingSeconds > 0) {
     return (
       <div className="screen">
         <div className="section">
@@ -223,6 +242,36 @@ export const Focus: React.FC = () => {
               Stop Focus
             </button>
           </div>
+
+          {/* Success Message */}
+          {successMessage && (
+            <div style={{
+              padding: '1rem',
+              background: 'rgba(16, 185, 129, 0.2)',
+              border: '1px solid rgba(16, 185, 129, 0.5)',
+              borderRadius: '8px',
+              marginBottom: '1rem',
+              color: '#10b981',
+              fontSize: '0.875rem'
+            }}>
+              ✓ {successMessage}
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div style={{
+              padding: '1rem',
+              background: 'rgba(239, 68, 68, 0.2)',
+              border: '1px solid rgba(239, 68, 68, 0.5)',
+              borderRadius: '8px',
+              marginBottom: '1rem',
+              color: '#fca5a5',
+              fontSize: '0.875rem'
+            }}>
+              ✗ {error}
+            </div>
+          )}
 
           {/* Timer Display with Circular Progress */}
           <div style={{
@@ -406,28 +455,64 @@ export const Focus: React.FC = () => {
               )}
             </div>
 
-            {isNotificationsMuted && (
-              <div style={{
-                padding: '1rem',
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '8px',
-                marginTop: '1rem'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <span style={{ fontSize: '1.25rem' }}>🔇</span>
-                  <span style={{ fontWeight: 600 }}>Notifications are muted</span>
+          {isNotificationsMuted && (
+            <div style={{
+              padding: '1rem',
+              background: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: '8px',
+              marginTop: '1rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '1.25rem' }}>🔇</span>
+                <span style={{ fontWeight: 600 }}>Notifications are muted</span>
+              </div>
+              {muteRemainingSeconds !== null && muteRemainingSeconds > 0 && (
+                <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' }}>
+                  Auto-unmute in: {formatTime(muteRemainingSeconds)}
                 </div>
-                {muteRemainingSeconds !== null && muteRemainingSeconds > 0 && (
-                  <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' }}>
-                    Auto-unmute in: {formatTime(muteRemainingSeconds)}
+              )}
+              {muteRemainingSeconds === null && (
+                <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' }}>
+                  Muted until manually unmuted
+                </div>
+              )}
+              <div style={{
+                fontSize: '0.75rem',
+                opacity: 0.7,
+                marginTop: '0.75rem',
+                padding: '0.75rem',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '6px'
+              }}>
+                <div style={{ fontWeight: 500, marginBottom: '0.25rem', color: '#fca5a5' }}>
+                  ⚠️ Why you might still see notifications:
+                </div>
+                <div style={{ fontSize: '0.7rem', lineHeight: '1.6', marginBottom: '0.5rem' }}>
+                  <div style={{ marginBottom: '0.4rem' }}>
+                    • <strong>Some apps bypass Windows settings:</strong> Apps like Discord, Slack, WhatsApp, and Teams may show notifications even when muted because they use their own notification systems.
                   </div>
-                )}
-                {muteRemainingSeconds === null && (
-                  <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' }}>
-                    Muted until manually unmuted
+                  <div style={{ marginBottom: '0.4rem' }}>
+                    • <strong>Apps need restart:</strong> Some apps only read notification settings when they start. Try restarting the app after muting.
                   </div>
-                )}
+                  <div style={{ marginBottom: '0.4rem' }}>
+                    • <strong>In-app settings override:</strong> Check the app's own notification settings - they may override Windows settings.
+                  </div>
+                  <div>
+                    • <strong>Windows limitations:</strong> Windows notification suppression isn't 100% reliable for all apps.
+                  </div>
+                </div>
+                <div style={{ 
+                  marginTop: '0.75rem', 
+                  padding: '0.5rem', 
+                  background: 'rgba(59, 130, 246, 0.1)', 
+                  borderRadius: '4px',
+                  fontSize: '0.7rem'
+                }}>
+                  <strong>💡 Tip:</strong> For best results, manually disable notifications in each app's settings, or use Windows Focus Assist: Press <kbd style={{ padding: '2px 6px', background: 'rgba(0,0,0,0.3)', borderRadius: '3px' }}>Win+A</kbd> → <strong>Focus Assist</strong> → <strong>"Alarms only"</strong>
+                </div>
+              </div>
                 <div style={{
                   fontSize: '0.75rem',
                   opacity: 0.7,
@@ -438,13 +523,30 @@ export const Focus: React.FC = () => {
                   borderRadius: '6px'
                 }}>
                   <div style={{ fontWeight: 500, marginBottom: '0.25rem', color: '#fca5a5' }}>
-                    ⚠️ Still seeing notifications?
+                    ⚠️ Why you might still see notifications:
                   </div>
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    Windows may require manual Focus Assist activation. Try:
+                  <div style={{ fontSize: '0.7rem', lineHeight: '1.6', marginBottom: '0.5rem' }}>
+                    <div style={{ marginBottom: '0.4rem' }}>
+                      • <strong>Some apps bypass Windows settings:</strong> Apps like Discord, Slack, WhatsApp, and Teams may show notifications even when muted because they use their own notification systems.
+                    </div>
+                    <div style={{ marginBottom: '0.4rem' }}>
+                      • <strong>Apps need restart:</strong> Some apps only read notification settings when they start. Try restarting the app after muting.
+                    </div>
+                    <div style={{ marginBottom: '0.4rem' }}>
+                      • <strong>In-app settings override:</strong> Check the app's own notification settings - they may override Windows settings.
+                    </div>
+                    <div>
+                      • <strong>Windows limitations:</strong> Windows notification suppression isn't 100% reliable for all apps.
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.7rem', lineHeight: '1.5' }}>
-                    <strong>Quick method:</strong> Press <kbd style={{ padding: '2px 6px', background: 'rgba(0,0,0,0.3)', borderRadius: '3px' }}>Win+A</kbd> → Click <strong>Focus Assist</strong> → Set to <strong>"Alarms only"</strong>
+                  <div style={{ 
+                    marginTop: '0.75rem', 
+                    padding: '0.5rem', 
+                    background: 'rgba(59, 130, 246, 0.1)', 
+                    borderRadius: '4px',
+                    fontSize: '0.7rem'
+                  }}>
+                    <strong>💡 Tip:</strong> For best results, manually disable notifications in each app's settings, or use Windows Focus Assist: Press <kbd style={{ padding: '2px 6px', background: 'rgba(0,0,0,0.3)', borderRadius: '3px' }}>Win+A</kbd> → <strong>Focus Assist</strong> → <strong>"Alarms only"</strong>
                   </div>
                   <button
                     onClick={async () => {
@@ -473,7 +575,7 @@ export const Focus: React.FC = () => {
                       fontWeight: '500'
                     }}
                   >
-                    📱 Open Windows Settings
+                    📱 Open Windows Focus Assist Settings
                   </button>
                 </div>
               </div>
@@ -690,6 +792,36 @@ export const Focus: React.FC = () => {
         <div className="section-header">
           <h3 className="section-title">🎯 Focus Mode</h3>
         </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div style={{
+            padding: '1rem',
+            background: 'rgba(16, 185, 129, 0.2)',
+            border: '1px solid rgba(16, 185, 129, 0.5)',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            color: '#10b981',
+            fontSize: '0.875rem'
+          }}>
+            ✓ {successMessage}
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            padding: '1rem',
+            background: 'rgba(239, 68, 68, 0.2)',
+            border: '1px solid rgba(239, 68, 68, 0.5)',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            color: '#fca5a5',
+            fontSize: '0.875rem'
+          }}>
+            ✗ {error}
+          </div>
+        )}
 
         <div style={{
           display: 'grid',
@@ -908,15 +1040,51 @@ export const Focus: React.FC = () => {
                 <span style={{ fontWeight: 600 }}>Notifications are muted</span>
               </div>
               {muteRemainingSeconds !== null && muteRemainingSeconds > 0 && (
-                <div style={{ fontSize: '0.875rem', opacity: 0.8 }}>
+                <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' }}>
                   Auto-unmute in: {formatTime(muteRemainingSeconds)}
                 </div>
               )}
               {muteRemainingSeconds === null && (
-                <div style={{ fontSize: '0.875rem', opacity: 0.8 }}>
+                <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.5rem' }}>
                   Muted until manually unmuted
                 </div>
               )}
+              <div style={{
+                fontSize: '0.75rem',
+                opacity: 0.7,
+                marginTop: '0.75rem',
+                padding: '0.75rem',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '6px'
+              }}>
+                <div style={{ fontWeight: 500, marginBottom: '0.25rem', color: '#fca5a5' }}>
+                  ⚠️ Why you might still see notifications:
+                </div>
+                <div style={{ fontSize: '0.7rem', lineHeight: '1.6', marginBottom: '0.5rem' }}>
+                  <div style={{ marginBottom: '0.4rem' }}>
+                    • <strong>Some apps bypass Windows settings:</strong> Apps like Discord, Slack, WhatsApp, and Teams may show notifications even when muted because they use their own notification systems.
+                  </div>
+                  <div style={{ marginBottom: '0.4rem' }}>
+                    • <strong>Apps need restart:</strong> Some apps only read notification settings when they start. Try restarting the app after muting.
+                  </div>
+                  <div style={{ marginBottom: '0.4rem' }}>
+                    • <strong>In-app settings override:</strong> Check the app's own notification settings - they may override Windows settings.
+                  </div>
+                  <div>
+                    • <strong>Windows limitations:</strong> Windows notification suppression isn't 100% reliable for all apps.
+                  </div>
+                </div>
+                <div style={{ 
+                  marginTop: '0.75rem', 
+                  padding: '0.5rem', 
+                  background: 'rgba(59, 130, 246, 0.1)', 
+                  borderRadius: '4px',
+                  fontSize: '0.7rem'
+                }}>
+                  <strong>💡 Tip:</strong> For best results, manually disable notifications in each app's settings, or use Windows Focus Assist: Press <kbd style={{ padding: '2px 6px', background: 'rgba(0,0,0,0.3)', borderRadius: '3px' }}>Win+A</kbd> → <strong>Focus Assist</strong> → <strong>"Alarms only"</strong>
+                </div>
+              </div>
             </div>
           )}
 
@@ -996,6 +1164,116 @@ export const Focus: React.FC = () => {
             💡 You can mute notifications independently of focus mode. This is useful when you need quiet time without starting a focus session.
           </div>
         </div>
+
+        {/* Upcoming Meeting Display (Inactive View) */}
+        {nextMeeting && rescheduleOptIn && (
+          <div className="section" style={{ marginTop: '2rem' }}>
+            <div className="section-header">
+              <h3 className="section-title">📅 Upcoming Meeting</h3>
+              <button
+                onClick={() => setShowRescheduleOptions(!showRescheduleOptions)}
+                className="button button-secondary"
+                style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+              >
+                Reschedule
+              </button>
+            </div>
+            <div style={{
+              padding: '1rem',
+              background: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: '8px',
+              marginTop: '1rem'
+            }}>
+              <div style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '0.5rem' }}>
+                {nextMeeting.title || 'Untitled Meeting'}
+              </div>
+              <div style={{ fontSize: '0.875rem', opacity: 0.8, marginBottom: '0.25rem' }}>
+                📅 {new Date(nextMeeting.start_time * 1000).toLocaleString()}
+              </div>
+              {timeUntilMeeting !== null && (
+                <div style={{ fontSize: '0.875rem', opacity: 0.8 }}>
+                  ⏰ Starts in {formatTime(timeUntilMeeting)}
+                </div>
+              )}
+              {showRescheduleOptions && (
+                <div style={{
+                  marginTop: '1rem',
+                  padding: '1rem',
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem'
+                }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>
+                    Reschedule by:
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    gap: '0.5rem',
+                    flexWrap: 'wrap'
+                  }}>
+                    <button
+                      onClick={() => handleRescheduleMeeting(15)}
+                      className="button button-primary"
+                      style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}
+                    >
+                      +15 minutes
+                    </button>
+                    <button
+                      onClick={() => handleRescheduleMeeting(30)}
+                      className="button button-primary"
+                      style={{ padding: '0.75rem 1rem', fontSize: '0.875rem' }}
+                    >
+                      +30 minutes
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowRescheduleOptions(false)}
+                    className="button button-text"
+                    style={{ padding: '0.5rem', fontSize: '0.875rem', marginTop: '0.5rem' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Debug: Show if no meeting found */}
+        {rescheduleOptIn && !nextMeeting && (
+          <div className="section" style={{ marginTop: '2rem' }}>
+            <div style={{
+              padding: '1rem',
+              background: 'rgba(156, 163, 175, 0.1)',
+              border: '1px solid rgba(156, 163, 175, 0.3)',
+              borderRadius: '8px',
+              fontSize: '0.875rem',
+              opacity: 0.8
+            }}>
+              {!isAuthenticated ? (
+                <>
+                  <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>⚠️ Calendar not connected</div>
+                  <div>Please connect your Google Calendar or Microsoft Calendar to use meeting reschedule features.</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>ℹ️ No upcoming meetings found</div>
+                  <div>Make sure you have upcoming events in your calendar. The app shows meetings that start within the next 24 hours.</div>
+                  <button
+                    onClick={() => refreshEvents()}
+                    className="button button-secondary"
+                    style={{ marginTop: '0.75rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                  >
+                    Refresh Calendar
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Reschedule Opt-in Preference */}
         <div className="section" style={{ marginTop: '2rem' }}>

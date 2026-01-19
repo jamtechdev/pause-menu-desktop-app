@@ -163,6 +163,10 @@ export const api = {
     return invoke<any[]>('get_meeting_suggestions');
   },
 
+  rescheduleMeeting: async (eventId: string, minutesOffset: number) => {
+    return invoke<any>('reschedule_meeting', { eventId, minutesOffset });
+  },
+
   openFocusAssistSettings: async () => {
     return invoke('open_focus_assist_settings');
   },

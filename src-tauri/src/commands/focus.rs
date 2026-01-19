@@ -129,3 +129,15 @@ pub async fn is_notifications_muted() -> Result<bool, String> {
     let service = service.lock().await;
     Ok(service.is_notifications_muted().await)
 }
+
+#[tauri::command]
+pub async fn reschedule_meeting(event_id: String, minutes_offset: i64) -> Result<crate::models::action::CalendarEvent, String> {
+    use crate::services::calendar_service::get_calendar_service;
+    
+    println!("[Focus] Rescheduling meeting {} by {} minutes", event_id, minutes_offset);
+    
+    let calendar_service = get_calendar_service().await;
+    let calendar_service = calendar_service.lock().await;
+    
+    calendar_service.reschedule_event(event_id, minutes_offset).await
+}

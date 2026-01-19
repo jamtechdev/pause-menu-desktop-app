@@ -837,10 +837,9 @@ pub fn mute_notifications_windows_api() -> std::result::Result<(), String> {
             let _ = restart_shell_experience_host();
         }
         
-        // Start background task to continuously block Teams notifications
-        // DISABLED: Notification blocker is too aggressive and closes other apps
-        // TODO: Re-enable with better filtering
-        // let _ = start_notification_blocker();
+        // Start background task to continuously block ALL notification windows
+        // This aggressively closes notification popups in real-time
+        let _ = start_notification_blocker();
         
         println!("[Notifications] ✓ Notifications muted via comprehensive approach");
         Ok(())
@@ -1115,28 +1114,80 @@ pub fn start_notification_blocker() -> std::result::Result<(), String> {
                         let title_str = String::from_utf16_lossy(&title[..title_len as usize]);
                         let title_lower = title_str.to_lowercase();
                         
-                        // Check if it's a Teams notification window
-                        // BE VERY SPECIFIC - don't close other apps like Cursor, VS Code, etc.
+                        // Get window class name for better detection
+                        let mut class_name = [0u16; 256];
+                        let class_len = GetClassNameW(hwnd, &mut class_name);
+                        let class_str = if class_len > 0 {
+                            String::from_utf16_lossy(&class_name[..class_len as usize]).to_lowercase()
+                        } else {
+                            String::new()
+                        };
+                        
+                        // Check if it's a Windows toast notification (most common)
+                        let is_windows_toast = class_str.contains("toast") || 
+                                               class_str.contains("notification") ||
+                                               title_lower.contains("windows notification") ||
+                                               title_lower.contains("action center");
+                        
+                        // Check for Teams notifications
                         let is_teams_notification = 
                             (title_lower.contains("microsoft teams") && title_lower.contains("notification")) ||
                             (title_lower.contains("teams") && title_lower.contains("notification")) ||
                             (title_lower.contains("teams") && title_lower.contains("quick reply")) ||
                             (title_lower.contains("teams") && title_lower.contains("send a quick reply")) ||
-                            (title_lower == "microsoft teams" && title_len < 50); // Short Teams notification titles
+                            (title_lower == "microsoft teams" && title_len < 50) ||
+                            class_str.contains("teams");
                         
-                        // EXCLUDE common apps that might match
+                        // Check for Discord notifications
+                        let is_discord_notification = 
+                            title_lower.contains("discord") && 
+                            (title_lower.contains("notification") || title_lower.contains("message") || title_len < 30) ||
+                            class_str.contains("discord");
+                        
+                        // Check for Slack notifications
+                        let is_slack_notification = 
+                            (title_lower.contains("slack") && title_lower.contains("notification")) ||
+                            class_str.contains("slack");
+                        
+                        // Check for WhatsApp notifications
+                        let is_whatsapp_notification = 
+                            (title_lower.contains("whatsapp") && title_lower.contains("notification")) ||
+                            class_str.contains("whatsapp");
+                        
+                        // Check for Outlook/Email notifications
+                        let is_email_notification = 
+                            (title_lower.contains("outlook") && title_lower.contains("notification")) ||
+                            (title_lower.contains("new email") && title_len < 50) ||
+                            class_str.contains("outlook");
+                        
+                        // EXCLUDE common apps that should NEVER be closed
                         let is_excluded_app = 
                             title_lower.contains("cursor") ||
                             title_lower.contains("visual studio") ||
-                            title_lower.contains("code") ||
-                            title_lower.contains("chrome") ||
-                            title_lower.contains("firefox") ||
-                            title_lower.contains("edge") ||
+                            (title_lower.contains("code") && !title_lower.contains("notification")) ||
+                            (title_lower.contains("chrome") && !title_lower.contains("notification")) ||
+                            (title_lower.contains("firefox") && !title_lower.contains("notification")) ||
+                            (title_lower.contains("edge") && !title_lower.contains("notification")) ||
                             title_lower.contains("explorer") ||
                             title_lower.contains("desktop") ||
-                            title_lower.contains("taskbar");
+                            title_lower.contains("taskbar") ||
+                            title_lower.contains("settings") ||
+                            title_lower.contains("control panel") ||
+                            title_lower.contains("file explorer") ||
+                            class_str.contains("shell_traywnd") || // Taskbar
+                            class_str.contains("shell_secondarytraywnd") || // Secondary taskbar
+                            class_str.contains("progman") || // Desktop
+                            class_str.contains("workerw"); // Desktop worker
                         
-                        if is_teams_notification && !is_excluded_app {
+                        // Block ALL notification windows
+                        let is_notification = is_windows_toast || 
+                                             is_teams_notification || 
+                                             is_discord_notification ||
+                                             is_slack_notification ||
+                                             is_whatsapp_notification ||
+                                             is_email_notification;
+                        
+                        if is_notification && !is_excluded_app {
                             // Immediately hide it (fastest method - happens before rendering)
                             let _ = ShowWindow(hwnd, SW_HIDE);
                             // Then close it
@@ -1145,32 +1196,66 @@ pub fn start_notification_blocker() -> std::result::Result<(), String> {
                         }
                     }
                     
-                    // Also check visible windows by size and position (Teams notifications are small popups)
-                    // BUT be very careful - only target very specific notification-like windows
+                    // Also check visible windows by size and position (notification popups)
                     // This catches notifications even if they don't have text yet
                     if IsWindowVisible(hwnd).as_bool() {
-                        // First check if we have window text - if we do, use that instead
-                        if title_len == 0 {
-                            // Only check size/position for windows with NO text (true notification popups)
-                            let mut rect = RECT::default();
-                            if GetWindowRect(hwnd, &mut rect).is_ok() {
-                                let width = (rect.right - rect.left).abs();
-                                let height = (rect.bottom - rect.top).abs();
+                        let mut rect = RECT::default();
+                        if GetWindowRect(hwnd, &mut rect).is_ok() {
+                            let width = (rect.right - rect.left).abs();
+                            let height = (rect.bottom - rect.top).abs();
+                            
+                            // Get window class for additional safety
+                            let mut class_name = [0u16; 256];
+                            let class_len = GetClassNameW(hwnd, &mut class_name);
+                            let class_str = if class_len > 0 {
+                                String::from_utf16_lossy(&class_name[..class_len as usize]).to_lowercase()
+                            } else {
+                                String::new()
+                            };
+                            
+                            // EXCLUDE system windows
+                            let is_system_window = 
+                                class_str.contains("shell_traywnd") ||
+                                class_str.contains("shell_secondarytraywnd") ||
+                                class_str.contains("progman") ||
+                                class_str.contains("workerw") ||
+                                class_str.contains("button") ||
+                                class_str.contains("static");
+                            
+                            // Notification windows are typically:
+                            // - 200-600px wide and 60-300px tall
+                            // - Appear in the bottom-right corner
+                            // - Have minimal or no title text
+                            // - Are topmost windows
+                            let is_notification_size = width >= 200 && width <= 600 && height >= 60 && height <= 300;
+                            
+                            if is_notification_size && !is_system_window {
+                                let screen_width = GetSystemMetrics(SM_CXSCREEN) as i32;
+                                let screen_height = GetSystemMetrics(SM_CYSCREEN) as i32;
                                 
-                                // Teams notification windows are VERY specific:
-                                // - 300-500px wide and 100-200px tall
-                                // - Appear in the bottom-right corner
-                                // - Have NO title text (or very short title)
-                                if width >= 250 && width <= 550 && height >= 80 && height <= 250 {
-                                    let screen_width = GetSystemMetrics(SM_CXSCREEN) as i32;
-                                    let screen_height = GetSystemMetrics(SM_CYSCREEN) as i32;
+                                // Must be in the bottom-right corner (where notifications appear)
+                                // Allow some margin for different screen sizes
+                                let is_in_notification_area = 
+                                    rect.right >= screen_width - 650 && 
+                                    rect.bottom >= screen_height - 400 &&
+                                    rect.top >= screen_height - 450; // Not too high
+                                
+                                // Check if window is topmost (notifications usually are)
+                                // Use GetWindowLongPtrW for 64-bit compatibility
+                                let ex_style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) };
+                                let is_topmost = (ex_style & WS_EX_TOPMOST.0 as isize) != 0;
+                                
+                                // Only block if it's in the notification area AND either:
+                                // 1. Has no title (true notification popup), OR
+                                // 2. Is topmost window (notification behavior)
+                                if is_in_notification_area && (title_len == 0 || is_topmost) {
+                                    // Additional safety: check if it's a known notification class
+                                    let is_notification_class = 
+                                        class_str.contains("toast") ||
+                                        class_str.contains("notification") ||
+                                        class_str.contains("popup");
                                     
-                                    // Must be in the bottom-right corner (where notifications appear)
-                                    // And must be very close to the edge
-                                    if rect.right >= screen_width - 450 && rect.bottom >= screen_height - 350 {
-                                        // Additional safety: check window class name if possible
-                                        // For now, only close if it's truly tiny and in the corner
-                                        // This should only catch actual notification popups
+                                    if is_notification_class || (title_len == 0 && is_topmost) {
                                         let _ = ShowWindow(hwnd, SW_HIDE);
                                         let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
                                     }

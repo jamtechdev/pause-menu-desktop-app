@@ -17,7 +17,7 @@ export const ScreenSwitcher: React.FC<ScreenSwitcherProps> = ({
     { id: 'do', label: 'Do', icon: '✓' },
     { id: 'jump', label: 'Jump', icon: '↗' },
     { id: 'focus', label: 'Focus', icon: '🎯' },
-    { id: 'launch', label: 'Launch', icon: '🚀' },
+    // { id: 'launch', label: 'Launch', icon: '🚀' }, // Commented out for now
     { id: 'windows', label: 'Windows', icon: '🪟' },
     { id: 'recent-files', label: 'Files', icon: '📁' },
     { id: 'documents', label: 'Documents', icon: '📄' },

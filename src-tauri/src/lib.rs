@@ -633,6 +633,7 @@ pub fn run() {
             get_focus_remaining_seconds,
             is_focus_active,
             get_meeting_suggestions,
+            reschedule_meeting,
             open_focus_assist_settings,
             temporarily_mute_notifications,
             unmute_notifications,

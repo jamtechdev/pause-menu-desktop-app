@@ -9,7 +9,7 @@ import { Continue } from './components/screens/Continue';
 import { Do } from './components/screens/Do';
 import { Jump } from './components/screens/Jump';
 import { Focus } from './components/screens/Focus';
-import { Launch } from './components/screens/Launch';
+// import { Launch } from './components/screens/Launch'; // Commented out for now
 import { Windows } from './components/screens/Windows';
 import { RecentFiles } from './components/screens/RecentFiles';
 import { Documents } from './components/screens/Documents';
@@ -521,29 +521,24 @@ function App() {
           store.navigateToScreen(4);
           break;
         case '5':
-          console.log('[App] Navigating to screen 5 (Launch)');
+          console.log('[App] Navigating to screen 5 (Windows)');
           store.setKeyboardNavActive(true);
           store.navigateToScreen(5);
           break;
         case '6':
-          console.log('[App] Navigating to screen 6 (Windows)');
+          console.log('[App] Navigating to screen 6 (Recent Files)');
           store.setKeyboardNavActive(true);
           store.navigateToScreen(6);
           break;
         case '7':
-          console.log('[App] Navigating to screen 7 (Recent Files)');
+          console.log('[App] Navigating to screen 7 (Documents)');
           store.setKeyboardNavActive(true);
           store.navigateToScreen(7);
           break;
         case '8':
-          console.log('[App] Navigating to screen 8 (Documents)');
+          console.log('[App] Navigating to screen 8 (Profile)');
           store.setKeyboardNavActive(true);
           store.navigateToScreen(8);
-          break;
-        case '9':
-          console.log('[App] Navigating to screen 9 (Profile)');
-          store.setKeyboardNavActive(true);
-          store.navigateToScreen(9);
           break;
       }
     };
@@ -604,8 +599,8 @@ function App() {
         return <Jump />;
       case 'focus':
         return <Focus />;
-      case 'launch':
-        return <Launch />;
+      // case 'launch':
+      //   return <Launch />; // Commented out for now
       case 'windows':
         return <Windows />;
       case 'recent-files':

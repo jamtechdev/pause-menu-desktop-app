@@ -55,6 +55,13 @@ export const useFocus = () => {
             // Update remaining seconds
             const remaining = await api.getFocusRemainingSeconds();
             setRemainingSeconds(remaining);
+            
+            // Immediately hide UI if timer reaches 0 or less
+            if (remaining !== null && remaining <= 0) {
+              console.log('[useFocus] Timer reached 0, immediately hiding UI...');
+              setIsActive(false);
+              setRemainingSeconds(null);
+            }
           }
         } else {
           // Session is not active - clear state if it was set
@@ -67,10 +74,19 @@ export const useFocus = () => {
       } catch (error) {
         console.error('Error checking focus status:', error);
       }
-    }, 1000); // Update every second
+    }, 100); // Update every 100ms for more responsive UI
 
     return () => clearInterval(interval);
   }, [isActive]);
+  
+  // Additional immediate check when remainingSeconds changes to 0 or less
+  useEffect(() => {
+    if (isActive && remainingSeconds !== null && remainingSeconds <= 0) {
+      console.log('[useFocus] Timer reached 0, immediately hiding UI...');
+      setIsActive(false);
+      setRemainingSeconds(null);
+    }
+  }, [remainingSeconds, isActive]);
 
   const startFocus = async (mode: FocusMode, customMinutes?: number) => {
     try {

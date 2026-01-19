@@ -209,7 +209,7 @@ pub async fn launch_file(file_path: String) -> Result<(), String> {
     {
         // Use ShellExecute for files (handles file associations automatically)
         match launch_with_shellexecute(&file_path) {
-            Ok(_) => {
+            Ok(_) => {  
                 println!("[Launch] ✓ Launched file via ShellExecute: {}", file_path);
                 Ok(())
             }

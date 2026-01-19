@@ -125,8 +125,8 @@ impl GmailService {
         
         println!("[Gmail] Raw draft response (first 500 chars): {}", 
                  &response_text.chars().take(500).collect::<String>());
-        
-        // Try to parse the response
+
+        // Try to parse the response for debugging
         let draft: GmailDraft = serde_json::from_str(&response_text)
             .map_err(|e| {
                 eprintln!("[Gmail] ✗ Failed to parse draft response: {}", e);
@@ -138,7 +138,7 @@ impl GmailService {
                  draft.id, draft.message.is_some());
         Ok(draft)
     }
-
+    ///// ------------------------------------------------------------------------------------------------ /////       
     /// Send an email
     pub async fn send_email(request: SendEmailRequest) -> Result<SendEmailResponse, String> {
         println!("[Gmail] send_email called");
@@ -180,7 +180,7 @@ impl GmailService {
         message.push_str("\r\n");
         message.push_str(&request.body);
         
-        println!("[Gmail] Email message preview (first 200 chars): {}", 
+        println!("[Gmail] Email message preview (first 200 chars): {}",
                  &message.chars().take(200).collect::<String>());
 
         // Encode message in base64url format (Gmail API requirement)

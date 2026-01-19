@@ -31,6 +31,7 @@ export const About: React.FC = () => {
           <section className="about-section">
             <h2>What We Do</h2>
             <div className="features-grid">
+              
               <div className="feature-item">
                 <div className="feature-icon">⚡</div>
                 <h3>Lightning Fast</h3>

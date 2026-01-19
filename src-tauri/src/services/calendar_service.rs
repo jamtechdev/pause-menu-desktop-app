@@ -35,7 +35,8 @@ struct GoogleCalendarResponse {
 #[derive(Debug, Deserialize)]
 struct GoogleEvent {
     id: String,
-    summary: String,
+    #[serde(default)]
+    summary: Option<String>, // Optional because events can have no title
     start: GoogleDateTime,
     end: GoogleDateTime,
     location: Option<String>,
@@ -270,7 +271,7 @@ impl CalendarService {
         let (auth_url, _csrf_token) = client
             .authorize_url(oauth2::CsrfToken::new_random)
             .add_scope(Scope::new(
-                "https://www.googleapis.com/auth/calendar.readonly".to_string(),
+                "https://www.googleapis.com/auth/calendar".to_string(), // Full calendar access (read + write)
             ))
             // Add Gmail API scopes
             .add_scope(Scope::new(
@@ -378,7 +379,7 @@ impl CalendarService {
 
         let (auth_url, _csrf_token) = client
             .authorize_url(oauth2::CsrfToken::new_random)
-            .add_scope(Scope::new("Calendars.Read".to_string()))
+            .add_scope(Scope::new("Calendars.ReadWrite".to_string())) // Read + Write access
             .url();
 
         Ok(auth_url.to_string())
@@ -777,7 +778,7 @@ impl CalendarService {
             .into_iter()
             .enumerate()
             .filter_map(|(idx, event)| {
-                println!("[Calendar] Processing event {}: id={}, summary={}", idx, event.id, event.summary);
+                println!("[Calendar] Processing event {}: id={}, summary={:?}", idx, event.id, event.summary);
                 println!("[Calendar] Event {} start: date_time={:?}, date={:?}", 
                     idx, event.start.date_time, event.start.date);
                 println!("[Calendar] Event {} end: date_time={:?}, date={:?}", 
@@ -862,7 +863,7 @@ impl CalendarService {
 
                 let cal_event = CalendarEvent {
                     id: format!("google_{}", event.id),
-                    title: event.summary.clone(),
+                    title: event.summary.clone().unwrap_or_else(|| "(No title)".to_string()),
                     start_time,
                     end_time,
                     location: event.location.clone(),
@@ -1021,6 +1022,156 @@ impl CalendarService {
         *self.last_fetch.write().await = Some(Utc::now());
 
         println!("[Calendar] ✓ Events cached successfully");
+        Ok(())
+    }
+
+    /// Reschedule a calendar event by moving it forward by specified minutes
+    pub async fn reschedule_event(&self, event_id: String, minutes_offset: i64) -> Result<CalendarEvent, String> {
+        println!("[Calendar] Rescheduling event {} by {} minutes", event_id, minutes_offset);
+        
+        // Find the event in cached events
+        let cached_events = self.cached_events.read().await;
+        let event = cached_events
+            .iter()
+            .find(|e| e.id == event_id)
+            .ok_or_else(|| format!("Event with ID {} not found", event_id))?;
+        
+        let original_start = event.start_time;
+        let original_end = event.end_time;
+        let duration = original_end - original_start;
+        
+        // Calculate new times
+        let new_start = original_start + Duration::minutes(minutes_offset);
+        let new_end = new_start + duration;
+        
+        println!("[Calendar] Original time: {} - {}", original_start, original_end);
+        println!("[Calendar] New time: {} - {}", new_start, new_end);
+        
+        // Determine provider based on event ID
+        if event_id.starts_with("microsoft_") {
+            // Microsoft Calendar event - strip the prefix
+            let actual_id = event_id.strip_prefix("microsoft_").unwrap();
+            self.reschedule_microsoft_event(actual_id, new_start, new_end).await?;
+        } else if event_id.starts_with("google_") {
+            // Google Calendar event - strip the prefix
+            let actual_id = event_id.strip_prefix("google_").unwrap();
+            self.reschedule_google_event(actual_id, new_start, new_end).await?;
+        } else {
+            // Assume it's a Google Calendar event ID without prefix (for backward compatibility)
+            self.reschedule_google_event(&event_id, new_start, new_end).await?;
+        }
+        
+        // Refresh events to get updated data
+        drop(cached_events);
+        self.refresh_events().await?;
+        
+        // Get the updated event
+        let updated_events = self.cached_events.read().await;
+        let updated_event = updated_events
+            .iter()
+            .find(|e| e.id == event_id)
+            .ok_or_else(|| "Event not found after reschedule".to_string())?
+            .clone();
+        
+        println!("[Calendar] ✓ Event rescheduled successfully");
+        Ok(updated_event)
+    }
+
+    /// Reschedule a Google Calendar event
+    async fn reschedule_google_event(&self, event_id: &str, new_start: DateTime<Utc>, new_end: DateTime<Utc>) -> Result<(), String> {
+        let token_data = Self::get_token(CalendarProvider::Google).await?;
+        
+        // Format times in RFC3339 format for Google Calendar API
+        let start_time_str = new_start.to_rfc3339();
+        let end_time_str = new_end.to_rfc3339();
+        
+        let url = format!(
+            "https://www.googleapis.com/calendar/v3/calendars/primary/events/{}",
+            event_id
+        );
+        
+        // Prepare the update payload
+        let update_payload = serde_json::json!({
+            "start": {
+                "dateTime": start_time_str,
+                "timeZone": "UTC"
+            },
+            "end": {
+                "dateTime": end_time_str,
+                "timeZone": "UTC"
+            }
+        });
+        
+        println!("[Calendar] Updating Google Calendar event {} with new times", event_id);
+        
+        let response = self.http_client
+            .patch(&url)
+            .bearer_auth(&token_data.access_token)
+            .header("Content-Type", "application/json")
+            .json(&update_payload)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to update Google Calendar event: {}", e))?;
+        
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unable to read error response".to_string());
+            return Err(format!(
+                "Google Calendar API error: {} - {}",
+                status, error_text
+            ));
+        }
+        
+        println!("[Calendar] ✓ Google Calendar event updated successfully");
+        Ok(())
+    }
+
+    /// Reschedule a Microsoft Calendar event
+    async fn reschedule_microsoft_event(&self, event_id: &str, new_start: DateTime<Utc>, new_end: DateTime<Utc>) -> Result<(), String> {
+        let token_data = Self::get_token(CalendarProvider::Microsoft).await?;
+        
+        // Format times in ISO 8601 format for Microsoft Graph API
+        let start_time_str = new_start.to_rfc3339();
+        let end_time_str = new_end.to_rfc3339();
+        
+        let url = format!(
+            "https://graph.microsoft.com/v1.0/me/events/{}",
+            event_id
+        );
+        
+        // Prepare the update payload
+        let update_payload = serde_json::json!({
+            "start": {
+                "dateTime": start_time_str,
+                "timeZone": "UTC"
+            },
+            "end": {
+                "dateTime": end_time_str,
+                "timeZone": "UTC"
+            }
+        });
+        
+        println!("[Calendar] Updating Microsoft Calendar event {} with new times", event_id);
+        
+        let response = self.http_client
+            .patch(&url)
+            .bearer_auth(&token_data.access_token)
+            .header("Content-Type", "application/json")
+            .json(&update_payload)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to update Microsoft Calendar event: {}", e))?;
+        
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unable to read error response".to_string());
+            return Err(format!(
+                "Microsoft Graph API error: {} - {}",
+                status, error_text
+            ));
+        }
+        
+        println!("[Calendar] ✓ Microsoft Calendar event updated successfully");
         Ok(())
     }
 }
